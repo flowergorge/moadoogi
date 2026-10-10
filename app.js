@@ -16,6 +16,8 @@ let records;try{const saved=JSON.parse(localStorage.getItem(STORAGE));records=Ar
 records=records.map((item,index)=>({...item,rank:Number.isFinite(item.rank)?item.rank:index,tags:item.autoTagsApplied?Array.isArray(item.tags)?item.tags:[]:itemTags(item),autoTagsApplied:true,starred:item.starred===true}));
 let activeFilter='관심', search='', order='manual', onlyDated=false, selected=records.find(x=>x.status==='관심')?.id || records[0]?.id || null, editing=null;
 let shownCount=PAGE_SIZE;
+let calendarView=location.hash==='#calendar';
+let scheduleCalendar;
 let toastTimer;
 let youtubeApiPromise=null,youtubePlayer=null,youtubePreviewEpoch=0;
 let lastCapture={value:'',time:0};
@@ -222,17 +224,19 @@ function renderCounts(){
   $('urgent-count').textContent='● '+urgent+'건 임박';
   $('dated-stat').classList.toggle('has-urgent',urgent>0);
   document.querySelectorAll('[data-count]').forEach(el=>el.textContent=count(el.dataset.count));
-  document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('active',!activeTag&&!onlyDated&&b.dataset.filter===activeFilter));
+  document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('active',!calendarView&&!activeTag&&!onlyDated&&b.dataset.filter===activeFilter));
   $('pills').innerHTML=STATUS.map(s=>`<button class="pill ${!activeTag&&!onlyDated&&s===activeFilter?'active':''}" data-pill="${s}">${s} <small>${count(s)}</small></button>`).join('');
   $('tag-filter-banner').hidden=!activeTag;
   $('tag-filter-label').textContent=activeTag?'#'+activeTag+' 태그의 스크랩':'';
 }
 function visible(){
+  if(calendarView)return window.MoadoogiCalendar.groupItems(records).get(scheduleCalendar.date)||[];
   let list=records.filter(x=>activeTag?(x.tags||[]).includes(activeTag):(activeFilter==='전체'||x.status===activeFilter)&&(!onlyDated||x.date));
   if(search)list=list.filter(x=>[x.title,x.note,x.url,x.status,(x.tags||[]).join(' ')].join(' ').toLowerCase().includes(search));
   return [...list].sort((a,b)=>(Number(b.starred)-Number(a.starred))||(order==='manual'?a.rank-b.rank:order==='old'?a.created.localeCompare(b.created):order==='date'?(a.date||'9999').localeCompare(b.date||'9999'):order==='title'?a.title.localeCompare(b.title,'ko'):b.created.localeCompare(a.created)));
 }
 function filterByTag(tag){
+  leaveCalendar();
   shownCount=PAGE_SIZE;
   activeTag=tag;activeFilter='전체';onlyDated=false;search='';$('search').value='';
   order='manual';$('sort').value=order;
@@ -335,7 +339,7 @@ function renderCards(){
   $('visible-count').textContent=all.length>list.length?list.length+' / '+all.length+'개':all.length+'개';
   $('cards').innerHTML=list.length?list.map(item=>{
     const type=typeOf(item.url);return `<article class="card ${item.id===selected?'selected':''}" data-card="${escapeHtml(item.id)}" role="button" tabindex="0" aria-label="${escapeHtml(item.title)} 상세보기"><input data-check="${escapeHtml(item.id)}" type="checkbox" ${item.status==='완료'?'checked':''} aria-label="완료 표시"><div class="kind-icon ${type}">${typeIcon(type)}</div><div class="card-main"><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.note||item.url||'내가 저장한 텍스트')}</p><div class="tags"><span class="tag">${typeName(type)}</span>${item.date?`<span class="tag date">▤ ${escapeHtml(item.date)}</span>`:''}</div></div><div class="card-end"><span class="card-time">${escapeHtml(savedDate(item.created))}</span><span class="status status-${escapeHtml(item.status)}">${escapeHtml(item.status)}</span></div></article>`;
-  }).join(''):'<div class="empty"><div style="font-size:26px">📭</div><strong>해당하는 항목이 없어요</strong>필터를 바꾸거나 새 항목을 추가해 보세요.</div>';
+  }).join(''):(calendarView?'<div class="empty"><strong>이날은 등록된 일정이 없어요</strong>다른 날짜를 선택하거나 스크랩 수정에서 관련 날짜를 지정해 주세요.</div>':'<div class="empty"><div style="font-size:26px">📭</div><strong>해당하는 항목이 없어요</strong>필터를 바꾸거나 새 항목을 추가해 보세요.</div>');
   decorateCards(list);
   document.querySelectorAll('#cards [data-card]').forEach((card,index)=>{
     const item=list[index];
@@ -544,8 +548,34 @@ async function showYoutubeInline(id){
     setTimeout(()=>{if(!ready&&generation===youtubePreviewEpoch)fallback()},10000);
   }catch{fallback()}
 }
-function render(){renderCounts();renderCards();renderDetail()}
-function setFilter(status,dated=false){shownCount=PAGE_SIZE;activeFilter=status;onlyDated=dated;activeTag=null;$('detail').classList.remove('show-mobile');render()}
+function leaveCalendar(){
+  calendarView=false;
+  if(location.hash==='#calendar')history.replaceState(history.state,'',location.pathname+location.search);
+}
+function openCalendar(){
+  calendarView=true;shownCount=PAGE_SIZE;activeTag=null;
+  if(location.hash!=='#calendar')history.pushState(history.state,'',location.pathname+location.search+'#calendar');
+  selected=visible()[0]?.id||null;
+  $('detail').classList.remove('show-mobile');render();
+  $('calendar-page').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function render(){
+  document.querySelector('.content').classList.toggle('calendar-view',calendarView);
+  $('calendar-page').hidden=!calendarView;
+  $('dated-nav').classList.toggle('active',calendarView);
+  $('calendar-bottom-nav').classList.toggle('active',calendarView);
+  $('dated-nav').setAttribute('aria-current',calendarView?'page':'false');
+  $('calendar-bottom-nav').setAttribute('aria-current',calendarView?'page':'false');
+  $('page-breadcrumb').textContent=calendarView?'일정 캘린더':'스크랩 & 할 일';
+  document.querySelector('.intro h1').textContent=calendarView?'일정 캘린더':'내 스크랩 & 할 일 ✦';
+  $('list-heading').textContent=calendarView?scheduleCalendar.dateLabel+' 일정':'내 스크랩 목록';
+  if(calendarView){
+    scheduleCalendar.render(records);
+    if(!visible().some(item=>item.id===selected))selected=visible()[0]?.id||null;
+  }
+  renderCounts();renderCards();renderDetail();
+}
+function setFilter(status,dated=false){leaveCalendar();shownCount=PAGE_SIZE;activeFilter=status;onlyDated=dated;activeTag=null;$('detail').classList.remove('show-mobile');render()}
 function openModal(item){
   editing=item?.id||null;$('modal-title').textContent=item?'스크랩 수정하기':'새 발견 저장하기';
   $('f-title').value=item?.title||'';$('f-url').value=item?.url||'';$('f-note').value=item?.note||'';
@@ -624,10 +654,11 @@ $('paste-clipboard').addEventListener('click',async()=>{
 $('sidebar-nav').addEventListener('click',e=>{const b=e.target.closest('[data-filter]');if(b)setFilter(b.dataset.filter)});
 $('bottom-nav').addEventListener('click',e=>{const b=e.target.closest('[data-filter]');if(b)setFilter(b.dataset.filter)});
 $('pills').addEventListener('click',e=>{const b=e.target.closest('[data-pill]');if(b)setFilter(b.dataset.pill)});
-$('dated-nav').addEventListener('click',()=>setFilter('전체',true));
+$('dated-nav').addEventListener('click',openCalendar);
+$('calendar-bottom-nav').addEventListener('click',openCalendar);
 $('interest-stat').addEventListener('click',()=>setFilter('관심'));
 $('progress-stat').addEventListener('click',()=>setFilter('진행중'));
-$('dated-stat').addEventListener('click',()=>setFilter('전체',true));
+$('dated-stat').addEventListener('click',openCalendar);
 $('search').addEventListener('input',e=>{shownCount=PAGE_SIZE;search=e.target.value.trim().toLowerCase();renderCards()});
 $('sort').addEventListener('change',e=>{shownCount=PAGE_SIZE;order=e.target.value;renderCards()});
 $('cards').addEventListener('click',e=>{
@@ -755,10 +786,23 @@ function receivePageShare(){
   }catch{toast('공유한 페이지의 제목과 주소를 읽을 수 없어요.')}
   finally{history.replaceState(history.state,'',location.pathname+location.search)}
 }
+scheduleCalendar=window.MoadoogiCalendar.create($('calendar-page'),{
+  today:kstDate,
+  onSelect:(_date,id)=>{
+    shownCount=PAGE_SIZE;
+    selected=id||visible()[0]?.id||null;
+    $('detail').classList.toggle('show-mobile',Boolean(id));render();
+    if(id)$('detail').scrollIntoView({behavior:'smooth',block:'start'});
+  }
+});
+window.addEventListener('hashchange',()=>{
+  calendarView=location.hash==='#calendar';
+  $('detail').classList.remove('show-mobile');render();
+});
 setTheme(theme);
 renderCaptureTime();
 setInterval(renderCaptureTime,1000);
-setInterval(()=>{if(!draggedId)renderCards()},60000);
+setInterval(()=>{if(!draggedId){renderCards();if(calendarView)scheduleCalendar.render(records)}},60000);
 render();
 receivePageShare();
 window.MoadoogiCloud?.init({
