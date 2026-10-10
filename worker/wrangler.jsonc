@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "moadoogi-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-10",
+  "workers_dev": true,
+  "vars": {
+    "FIREBASE_PROJECT_ID": "REPLACE_WITH_FIREBASE_PROJECT_ID",
+    "ALLOWED_ORIGINS": "https://flowergorge.github.io"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "moadoogi",
+      "database_id": "REPLACE_WITH_D1_DATABASE_UUID",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

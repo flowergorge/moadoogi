@@ -138,15 +138,17 @@ function saveCapture(){
   toast((parsed.date?'일정 '+parsed.date+'과 함께 ':'')+'관심 목록에 저장했어요');
 }
 async function loadMetadataForItem(item){
-  // GitHub Pages에서는 방문자의 localhost 서버에 접근하지 않는다.
-  if(location.protocol!=='file:'&&location.hostname!=='localhost'&&location.hostname!=='127.0.0.1')return;
+  const cloud=window.MoadoogiCloud;
+  const useCloud=Boolean(cloud?.isReady());
+  // 원격 웹앱에서는 로컬 Python 서버에 접근하지 않는다.
+  if(!useCloud&&location.protocol!=='file:'&&location.hostname!=='localhost'&&location.hostname!=='127.0.0.1')return;
   const initialTitle=item.title,initialNote=item.note;
   const isX=typeOf(item.url)==='x';
   const endpoint='http://127.0.0.1:18976/api/'+(isX?'x':'title')+'?url='+encodeURIComponent(item.url);
   try{
-    const response=await fetch(endpoint,{signal:AbortSignal.timeout(9000)});
-    if(!response.ok)return;
-    const result=await response.json();
+    let result;
+    if(useCloud){result=await cloud.metadata(item.url);if(!result)return}
+    else{const response=await fetch(endpoint,{signal:AbortSignal.timeout(9000)});if(!response.ok)return;result=await response.json()}
     const current=records.find(x=>x.id===item.id);
     if(!current||current.url!==item.url)return;
     if(isX){
@@ -166,7 +168,10 @@ async function loadMetadataForItem(item){
     save();render();toast(isX?'X 작성자·본문 정보를 가져왔어요':'게시글 제목을 자동으로 가져왔어요');
   }catch{/* 제목 조회 서비스 미실행 또는 사이트 접근 제한 시 기존 제목 유지 */}
 }
-function save(){try{localStorage.setItem(STORAGE,JSON.stringify(records))}catch{toast('현재 환경에서는 브라우저에 저장할 수 없어요.')}}
+function save(){
+  if(window.MoadoogiCloud?.isReady()){window.MoadoogiCloud.onLocalChange(records);return}
+  try{localStorage.setItem(STORAGE,JSON.stringify(records))}catch{toast('현재 환경에서는 브라우저에 저장할 수 없어요.')}
+}
 function toast(message){clearTimeout(toastTimer);$('toast').textContent=message;$('toast').classList.add('show');toastTimer=setTimeout(()=>$('toast').classList.remove('show'),2700)}
 function count(s){return s==='전체'?records.length:records.filter(x=>x.status===s).length}
 function nextStatus(status){const list=STATUS.slice(1);return list[(list.indexOf(status)+1)%list.length]}
@@ -615,4 +620,35 @@ renderCaptureTime();
 setInterval(renderCaptureTime,1000);
 setInterval(()=>{if(!draggedId)renderCards()},60000);
 render();
+window.MoadoogiCloud?.init({
+  getRecords:()=>records,
+  readLocalRecords:()=>{
+    try{const data=JSON.parse(localStorage.getItem(STORAGE));return Array.isArray(data)?data:[]}
+    catch{return []}
+  },
+  persistLocalRecords:next=>{
+    try{localStorage.setItem(STORAGE,JSON.stringify(next))}
+    catch{toast('브라우저 저장 공간에 복원하지 못했어요')}
+  },
+  replaceRecords:next=>{
+    records=next.map((item,index)=>({
+      ...item,rank:Number.isFinite(item.rank)?item.rank:index,
+      tags:Array.isArray(item.tags)?item.tags:[],autoTagsApplied:true,starred:item.starred===true
+    }));
+    selected=records.find(item=>item.id===selected)?.id||records.find(x=>x.status==='관심')?.id||records[0]?.id||null;
+    shownCount=PAGE_SIZE;activeTag=null;render();
+  },
+  restoreLocalRecords:()=>{
+    let saved;
+    try{saved=JSON.parse(localStorage.getItem(STORAGE))}catch{}
+    const next=Array.isArray(saved)?saved:demoData;
+    records=next.map((item,index)=>({
+      ...item,rank:Number.isFinite(item.rank)?item.rank:index,
+      tags:Array.isArray(item.tags)?item.tags:itemTags(item),autoTagsApplied:true,starred:item.starred===true
+    }));
+    selected=records.find(x=>x.status==='관심')?.id||records[0]?.id||null;
+    shownCount=PAGE_SIZE;activeTag=null;render();
+  },
+  showToast:toast
+});
 })();

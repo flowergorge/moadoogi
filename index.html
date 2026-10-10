@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="./improvements.css">
   <link rel="stylesheet" href="./composer.css">
   <link rel="stylesheet" href="./theme.css">
+  <link rel="stylesheet" href="./cloud.css">
 </head>
 <body>
   <div class="app">
@@ -31,6 +32,17 @@
     <main class="main">
       <header class="topbar"><div>내 작업 공간 <span class="slash">/</span> <strong>스크랩 & 할 일</strong></div><div class="top-right"><button type="button" id="theme-toggle" class="theme-toggle" aria-label="다크 모드로 전환" title="라이트 / 다크 모드"><span id="theme-icon" aria-hidden="true">☾</span></button><span class="today" id="today"></span></div></header>
       <div class="content">
+        <div class="cloud-auth" aria-label="구글 로그인과 스크랩 동기화">
+          <span id="cloud-status" class="cloud-status">로컬 저장 모드</span>
+          <span id="cloud-user" class="cloud-user"></span>
+          <button type="button" id="cloud-login" class="cloud-button" hidden>G 구글 로그인</button>
+          <button type="button" id="cloud-import" class="cloud-button" hidden title="기존 로컬 스크랩을 내 계정에 추가">로컬 가져오기</button>
+          <button type="button" id="cloud-refresh" class="cloud-button" hidden>↻ 동기화</button>
+          <button type="button" id="cloud-logout" class="cloud-button" hidden>로그아웃</button>
+          <button type="button" id="cloud-export" class="cloud-button" title="현재 스크랩을 JSON 파일로 백업">↓ 백업</button>
+          <button type="button" id="cloud-import-file" class="cloud-button" title="JSON 백업에서 스크랩 불러오기">↑ 복원</button>
+          <input type="file" id="cloud-file" accept=".json,application/json" hidden aria-label="모아두기 JSON 백업 파일">
+        </div>
         <div class="intro"><div><h1>내 스크랩 & 할 일 <span>✦</span></h1></div></div>
         <section class="quick-capture" aria-label="스크랩 입력">
           <div class="composer-toolbar">
@@ -66,6 +78,8 @@
     </section>
   </div>
   <div class="toast" id="toast" role="status"></div>
+  <script src="./cloud-config.js" defer></script>
+  <script src="./cloud-client.js" defer></script>
   <script src="./app.js" defer></script>
 </body>
 </html>

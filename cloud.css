@@ -1,0 +1,11 @@
+.cloud-auth{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;padding:12px 0 0;min-height:45px}
+.cloud-status{font-size:11px;color:var(--sub);font-weight:700}
+.cloud-status[data-state="ok"]{color:#3b9a73}
+.cloud-status[data-state="error"]{color:#cb7257}
+.cloud-status[data-state="loading"]{color:var(--purple)}
+.cloud-user{font-size:11px;font-weight:750;color:var(--ink);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cloud-user:empty{display:none}
+.cloud-button{background:var(--surface);color:var(--purple);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:11px;font-weight:800;cursor:pointer}
+.cloud-button:hover{background:var(--purple-light);border-color:var(--purple)}
+.cloud-auth+.intro{margin-top:21px}
+@media(max-width:560px){.cloud-auth{justify-content:flex-start;gap:5px}.cloud-status{flex:1 1 100%;font-size:10px}.cloud-button{font-size:10px;padding:7px 8px}.cloud-auth+.intro{margin-top:17px}}

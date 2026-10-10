@@ -23,3 +23,7 @@ v5-*.png
 *.key
 *.pem
 secrets.*
+
+# Private user scrap exports should never be committed.
+moadoogi-*.json
+*backup*.json
