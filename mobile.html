@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f7fb">
+  <meta name="referrer" content="no-referrer">
+  <title>모아두기 · 공유 저장</title>
+  <link rel="stylesheet" href="./mobile.css">
+  <script src="./cloud-config.js" defer></script>
+  <script type="module" src="./mobile-client.js"></script>
+</head>
+<body>
+<main>
+  <header><span class="mark" aria-hidden="true">✳</span><span>모아두기<span class="dot">.</span></span><small>SHARE & SAVE</small></header>
+  <section id="capture-panel" hidden>
+    <div class="eyebrow">지금 발견한 것</div>
+    <h1 id="heading">관심 목록에 모아두기</h1>
+    <p class="intro">이 계정으로 저장해 두면 웹에서도 볼 수 있어요.</p>
+    <div class="preview"><strong id="share-title"></strong><p id="share-text"></p></div>
+  </section>
+  <section id="account-panel" hidden>
+    <div class="eyebrow">공유 전용 앱</div>
+    <h1>발견한 순간,<br>모아두기.</h1>
+    <p class="intro">다른 앱에서 <b>공유 → 모아두기</b>를 누르세요.<br>링크와 텍스트를 관심 목록에 저장해 드려요.</p>
+  </section>
+  <section class="account-card" aria-label="로그인 계정">
+    <span class="avatar" aria-hidden="true">G</span>
+    <div><strong id="account-name">로그인 확인 중…</strong><small id="account-email">잠시만 기다려 주세요.</small></div>
+  </section>
+  <p id="status" role="status" aria-live="polite">연결하는 중…</p>
+  <button id="login" class="primary" hidden>구글로 로그인</button>
+  <button id="save" class="primary" hidden>이 계정에 저장</button>
+  <div id="success" class="success" hidden><span>✓</span><strong>관심 목록에 저장했어요</strong><p>왼쪽 위 × 또는 뒤로가기로 돌아가세요.</p></div>
+  <div class="account-actions"><button id="switch" hidden>계정 변경</button><button id="logout" hidden>로그아웃</button></div>
+  <p class="footnote">로그인은 앱을 다시 열어도 유지돼요.<br>목록 확인·수정·삭제는 기존 모아두기 웹에서 해 주세요.</p>
+  <noscript>이 화면은 자바스크립트가 필요해요. 브라우저 설정에서 허용해 주세요.</noscript>
+</main>
+<script>setTimeout(()=>{if(!window.moadoogiMobileReady){document.getElementById('status').textContent='연결하지 못했어요. 인터넷 연결을 확인하고 화면을 다시 열어 주세요.'}},15000)</script>
+</body>
+</html>

@@ -31,3 +31,12 @@ moadoogi-*.json
 # Cloudflare local state and JavaScript dependencies
 **/.wrangler/
 **/node_modules/
+
+# Android build outputs and private signing material
+**/.gradle/
+android/**/build/
+android/local.properties
+*.jks
+*.keystore
+*.apk
+*.aab

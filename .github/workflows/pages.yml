@@ -28,6 +28,7 @@ jobs:
         run: |
           mkdir -p _site/assets
           cp index.html app.js cloud-client.js cloud-config.js cloud.css style.css improvements.css composer.css theme.css _site/
+          cp mobile.html mobile.css mobile-client.js mobile-core.mjs _site/
           cp -R assets/. _site/assets/
           touch _site/.nojekyll
 
