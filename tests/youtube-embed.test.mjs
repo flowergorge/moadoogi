@@ -2,46 +2,58 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
-
-const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
-const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-const css = readFileSync(new URL('../theme.css', import.meta.url), 'utf8');
-const fn = /function openYoutubeDialog\(id,title,url\)\{[\s\S]*?\n\}/.exec(app)?.[0];
-
-test('YouTube embeds are only loaded when the user clicks Play, not via the local Python server', () => {
-  assert.ok(fn, 'openYoutubeDialog must exist');
-  assert.match(app, /id="youtube-play"/);
-  assert.match(app, /\$\('youtube-play'\)\?\.addEventListener\('click'/);
-  assert.doesNotMatch(app, /function activateYoutubePlayer/);
-  assert.doesNotMatch(fn, /127\.0\.0\.1|fetch\(/);
-  assert.match(html, /<dialog id="youtube-dialog"/);
-  assert.match(css, /\.youtube-dialog-video\{[^\n]*min-height:200px/);
-  assert.match(app, /addEventListener\('close',\(\)=>\$\('youtube-dialog-video'\)\.replaceChildren\(\)\)/);
+const app=readFileSync(new URL('../app.js',import.meta.url),'utf8');
+const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
+const css=readFileSync(new URL('../theme.css',import.meta.url),'utf8');
+const logic=app.match(/function stopYoutubeInline\(\)\{[\s\S]*?(?=function render\(\))/)?.[0];
+function setup(fail=false){
+  const classes=new Set(),slot={elements:[],append(value){this.elements.push(value)}},box={isConnected:true,classList:{add:x=>classes.add(x),remove:x=>classes.delete(x)}};
+  let player;
+  class Player{
+    constructor(iframe,options){if(fail)throw Error('blocked');Object.assign(this,{iframe,options,destroyed:false});player=this}
+    destroy(){this.destroyed=true}
+  }
+  const context={window:{YT:{Player}},location:{origin:'https://flowergorge.github.io'},$:id=>({'youtube-player-box':box,'youtube-embed-slot':slot}[id]),document:{createElement:tag=>({tag,remove(){this.removed=true}})},setTimeout:()=>1,clearTimeout:()=>{},Promise,encodeURIComponent};
+  runInNewContext('let youtubeApiPromise=null,youtubePlayer=null,youtubePreviewEpoch=0;\n'+logic,context);
+  return{context,classes,slot,get player(){return player}};
+}
+test('YouTube is inline instead of a popup',()=>{
+  assert.match(app,/function showYoutubeInline\(id\)/);
+  assert.match(app,/class="youtube-poster"/);
+  assert.match(css,/\.youtube-player-box\.has-player \.youtube-poster\{display:none\}/);
+  assert.doesNotMatch(html,/id="youtube-dialog"/);
 });
-
-test('YouTube modal uses an official embed URL and allows full-screen playback', () => {
-  const dialog = { open:false, showModal() { this.open=true; }, close() { this.open=false; } };
-  const container = { children:[], replaceChildren() { this.children=[]; }, append(iframe) { this.children.push(iframe); } };
-  const title = { textContent:'' }, link = { href:'' };
-  const elements = {'youtube-dialog':dialog, 'youtube-dialog-video':container, 'youtube-dialog-title':title, 'youtube-dialog-link':link};
-  runInNewContext(fn + '\nopenYoutubeDialog("M7lc1UVf-VE", "Video title", "https://www.youtube.com/watch?v=M7lc1UVf-VE")', {
-    $: id => elements[id]||null, document:{createElement:tag=>({tag})}, encodeURIComponent
-  });
-  assert.equal(dialog.open,true);
-  assert.equal(title.textContent,'Video title');
-  assert.equal(link.href,'https://www.youtube.com/watch?v=M7lc1UVf-VE');
-  assert.equal(container.children.length,1);
-  const iframe = container.children[0];
-  assert.equal(iframe.tag,'iframe');
-  assert.equal(iframe.src,'https://www.youtube-nocookie.com/embed/M7lc1UVf-VE?autoplay=1&playsinline=1');
-  assert.equal(iframe.referrerPolicy,'strict-origin-when-cross-origin');
-  assert.equal(iframe.allowFullscreen,true);
+test('YouTube player appears only after onReady',async()=>{
+  assert.ok(logic);
+  const h=setup();
+  await runInNewContext('showYoutubeInline("M7lc1UVf-VE")',h.context);
+  assert.equal(h.slot.elements.length,1);
+  assert.equal(h.classes.has('has-player'),false);
+  assert.equal(h.player.iframe.referrerPolicy,'strict-origin-when-cross-origin');
+  assert.equal(h.player.iframe.src,'https://www.youtube-nocookie.com/embed/M7lc1UVf-VE?enablejsapi=1&playsinline=1&origin=https%3A%2F%2Fflowergorge.github.io');
+  h.player.options.events.onReady();
+  assert.equal(h.classes.has('has-player'),true);
 });
-
-test('Invalid video IDs do not generate an iframe', () => {
-  let attempted = false;
-  runInNewContext(fn + '\nopenYoutubeDialog("<img onerror=1>", "Title", "https://example.com")', {
-    $:()=>{attempted=true;return null},document:{createElement:()=>{attempted=true}},encodeURIComponent
-  });
-  assert.equal(attempted,false);
+test('YouTube error restores poster and switching scrap stops player',async()=>{
+  const h=setup();
+  await runInNewContext('showYoutubeInline("M7lc1UVf-VE")',h.context);
+  h.player.options.events.onReady();
+  h.player.options.events.onError({data:150});
+  assert.equal(h.classes.has('has-player'),false);
+  assert.equal(h.player.destroyed,true);
+  const next=setup();
+  await runInNewContext('showYoutubeInline("M7lc1UVf-VE")',next.context);
+  runInNewContext('stopYoutubeInline()',next.context);
+  assert.equal(next.player.destroyed,true);
+  next.player.options.events.onReady();
+  assert.equal(next.classes.has('has-player'),false);
+});
+test('Invalid ID and player constructor failure leave thumbnail',async()=>{
+  const invalid=setup();
+  await runInNewContext('showYoutubeInline("<bad>")',invalid.context);
+  assert.equal(invalid.slot.elements.length,0);
+  const failed=setup(true);
+  await runInNewContext('showYoutubeInline("M7lc1UVf-VE")',failed.context);
+  assert.equal(failed.classes.has('has-player'),false);
+  assert.match(app,/class="youtube-poster" href="\$\{escapeHtml\(url\)\}"/);
 });

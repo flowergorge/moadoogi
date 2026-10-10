@@ -121,13 +121,16 @@ html[data-theme="dark"] .kind-icon.dcinside,html[data-theme="dark"] .kind-icon.a
 .detail-note-state{float:right;color:var(--muted);font-size:10px;font-weight:550}
 .x-card-body .twitter-tweet{margin:0 auto!important}
 .card:has(.x-card-body){align-items:start}
-.youtube-player-box{position:relative;background:#131823;border-radius:12px;overflow:hidden;width:100%;aspect-ratio:16/9;display:grid;place-items:center}
-.youtube-player-box>img{width:100%;height:100%;position:absolute;inset:0;object-fit:cover;opacity:.65}
-.youtube-fallback{position:relative;z-index:2;background:#141923dc;color:white;text-decoration:none;padding:10px 13px;border-radius:8px;border:1px solid #ffffff48;font-size:12px;font-weight:800;cursor:pointer}
-.youtube-fallback:hover{background:#3c4160}
-.youtube-fallback:focus-visible,.youtube-dialog button:focus-visible,.youtube-dialog a:focus-visible{outline:2px solid var(--purple);outline-offset:3px}
-.youtube-original{position:absolute;bottom:8px;right:8px;z-index:2;color:#fff;text-decoration:none;font-size:10px;background:#141923bd;padding:5px 7px;border-radius:6px}
-.youtube-original:hover{text-decoration:underline}
+.youtube-player-box{position:relative;background:#131823;border-radius:12px;overflow:hidden;width:100%;aspect-ratio:16/9;min-height:200px}
+.youtube-poster{position:absolute;inset:0;display:grid;place-items:center;text-decoration:none;color:#fff}
+.youtube-poster img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.75}
+.youtube-original{position:relative;z-index:1;background:#141923dc;color:#fff;padding:10px 13px;border:1px solid #ffffff48;border-radius:8px;font-size:12px;font-weight:800}
+.youtube-poster:hover .youtube-original{background:#3c4160}
+.youtube-poster:focus-visible{outline:2px solid var(--purple);outline-offset:-3px}
+.youtube-embed-slot{position:absolute;inset:0;opacity:0;pointer-events:none}
+.youtube-embed-slot iframe{display:block;width:100%;height:100%;border:0}
+.youtube-player-box.has-player .youtube-poster{display:none}
+.youtube-player-box.has-player .youtube-embed-slot{opacity:1;pointer-events:auto}
 .youtube-dialog{width:min(900px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);margin:auto;padding:0;overflow:auto;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:16px;box-shadow:0 20px 80px #080d1fa0}
 .youtube-dialog::backdrop{background:#0d112ad1}
 .youtube-dialog-head,.youtube-dialog-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 16px}

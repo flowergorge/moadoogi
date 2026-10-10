@@ -17,6 +17,7 @@ records=records.map((item,index)=>({...item,rank:Number.isFinite(item.rank)?item
 let activeFilter='관심', search='', order='manual', onlyDated=false, selected=records.find(x=>x.status==='관심')?.id || records[0]?.id || null, editing=null;
 let shownCount=PAGE_SIZE;
 let toastTimer;
+let youtubeApiPromise=null,youtubePlayer=null,youtubePreviewEpoch=0;
 let lastCapture={value:'',time:0};
 let receivedPageShare=null;
 let draftTags=[],editTags=[],captureStarred=false,activeTag=null,openStatusMenu=null,draggedId=null,dropPosition=null;
@@ -335,9 +336,10 @@ function loadXWidgets(container){
 }
 function calendarLink(item){if(!item.date)return '';const start=item.date.replaceAll('-','');const dt=new Date(item.date+'T12:00:00Z');dt.setUTCDate(dt.getUTCDate()+1);const end=dt.toISOString().slice(0,10).replaceAll('-','');return 'https://calendar.google.com/calendar/render?'+new URLSearchParams({action:'TEMPLATE',text:item.title,dates:start+'/'+end,details:[item.note,item.url].filter(Boolean).join('\n\n'),ctz:KST}).toString()}
 function renderDetail(){
+  stopYoutubeInline();
   const item=records.find(x=>x.id===selected);if(!item){$('detail').innerHTML='<div class="empty">저장한 항목을 선택하면 내용이 나타나요.</div>';return}
   const type=typeOf(item.url),id=youtubeId(item.url),url=safeUrl(item.url);
-  const art=type==='youtube'&&id&&/^[\w-]{11}$/.test(id)?`<div class="youtube-player-box" id="youtube-player-box"><img loading="lazy" alt="유튜브 영상 썸네일" src="https://i.ytimg.com/vi/${encodeURIComponent(id)}/hqdefault.jpg"><button type="button" class="youtube-fallback" id="youtube-play" aria-label="모아두기에서 유튜브 영상 재생">▶ 영상 재생</button><a class="youtube-original" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">YouTube에서 열기 ↗</a></div>`:type==='x'&&/\/status\/\d+/.test(url)?`<div class="x-embed"><blockquote class="twitter-tweet" data-conversation="none"><a href="${escapeHtml(url)}">X 게시물 보기</a></blockquote></div>`:`<div class="preview-art ${type}"><div class="mark">${typeIcon(type)}</div><span>${typeName(type).toUpperCase()} PREVIEW</span></div>`;
+  const art=type==='youtube'&&id&&/^[\w-]{11}$/.test(id)?`<div class="youtube-player-box" id="youtube-player-box"><a class="youtube-poster" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="YouTube에서 원본 영상 열기"><img loading="lazy" alt="유튜브 영상 썸네일" src="https://i.ytimg.com/vi/${encodeURIComponent(id)}/hqdefault.jpg"><span class="youtube-original">▶ YouTube에서 열기 ↗</span></a><div class="youtube-embed-slot" id="youtube-embed-slot"></div></div>`:type==='x'&&/\/status\/\d+/.test(url)?`<div class="x-embed"><blockquote class="twitter-tweet" data-conversation="none"><a href="${escapeHtml(url)}">X 게시물 보기</a></blockquote></div>`:`<div class="preview-art ${type}"><div class="mark">${typeIcon(type)}</div><span>${typeName(type).toUpperCase()} PREVIEW</span></div>`;
   $('detail').innerHTML=`<div class="detail-head"><strong>🔖 상세 미리보기</strong><small>저장된 스크랩</small></div>${art}<h3>${escapeHtml(item.title)}</h3><div class="url">${escapeHtml(url||'직접 작성한 메모')}</div><div class="rule"></div><div class="detail-label">내용 및 메모</div><div class="description">${escapeHtml(item.note||'추가된 메모가 없어요.')}</div><div class="rule"></div><div class="detail-row"><span>현재 상태</span><select id="detail-status">${STATUS.slice(1).map(s=>`<option ${item.status===s?'selected':''}>${s}</option>`).join('')}</select></div><div class="detail-row"><span>저장한 날</span><strong>${escapeHtml(humanDate(item.created))}</strong></div>${item.date?`<div class="detail-row"><span>관련 날짜</span><strong>${escapeHtml(item.date)} (KST)</strong></div>`:''}<div class="detail-actions">${url?'<button class="secondary" id="open-link">↗ 원본 열기</button>':''}${item.date?'<button class="secondary" id="to-calendar">▤ 캘린더 추가</button>':''}<button class="subtle" id="edit">수정</button><button class="subtle" id="delete">삭제</button></div>${type==='x'?'<p class="footnote">X 글은 공개 게시물의 개별 주소가 있을 때 실제 서비스에서 공식 임베드를 연결할 수 있어요.</p>':''}`;
   const githubImage=githubPreviewUrl(url);
   if(githubImage){
@@ -376,7 +378,7 @@ function renderDetail(){
     if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();memoInput.blur()}
   });
   if(url)$('detail').querySelector('.url').innerHTML=originalLink(url,url);
-  if(type==='youtube'&&id&&/^[\w-]{11}$/.test(id))$('youtube-play')?.addEventListener('click',()=>openYoutubeDialog(id,item.title,url));
+  if(type==='youtube'&&id&&/^[\w-]{11}$/.test(id))void showYoutubeInline(id);
   const savedRow=[...$('detail').querySelectorAll('.detail-row')].find(el=>el.querySelector('span')?.textContent==='저장한 날');
   if(savedRow)savedRow.querySelector('strong').textContent=humanDateTime(item.created)+' (KST)';
   const star=document.createElement('button');star.type='button';star.className='star-button detail-star'+(item.starred?' is-starred':'');
@@ -449,22 +451,64 @@ function renderDetail(){
   $('edit').addEventListener('click',()=>openModal(item));
   $('delete').addEventListener('click',()=>{if(window.confirm('이 항목을 삭제할까요?')){records=records.filter(x=>x.id!==item.id);selected=records[0]?.id||null;save();render();toast('항목을 삭제했어요')}});
 }
-function openYoutubeDialog(id,title,url){
+function stopYoutubeInline(){
+  youtubePreviewEpoch++;
+  if(youtubePlayer){
+    const old=youtubePlayer;youtubePlayer=null;
+    try{old.destroy()}catch{}
+  }
+}
+function youtubeIframeApi(){
+  if(window.YT?.Player)return Promise.resolve(window.YT);
+  if(youtubeApiPromise)return youtubeApiPromise;
+  youtubeApiPromise=new Promise(resolve=>{
+    const previous=window.onYouTubeIframeAPIReady;
+    let finished=false;
+    const complete=value=>{if(finished)return;finished=true;clearTimeout(timer);resolve(value)};
+    const timer=setTimeout(()=>complete(null),10000);
+    window.onYouTubeIframeAPIReady=()=>{
+      try{if(typeof previous==='function')previous()}catch{}
+      complete(window.YT?.Player?window.YT:null);
+    };
+    const script=document.createElement('script');
+    script.src='https://www.youtube.com/iframe_api';script.async=true;
+    script.onerror=()=>complete(null);
+    document.head.append(script);
+  }).then(value=>{if(!value)youtubeApiPromise=null;return value});
+  return youtubeApiPromise;
+}
+async function showYoutubeInline(id){
   if(!/^[\w-]{11}$/.test(id))return;
-  const dialog=$('youtube-dialog'),container=$('youtube-dialog-video');
-  if(!dialog||!container)return;
-  if(dialog.open)dialog.close();
-  container.replaceChildren();
-  $('youtube-dialog-title').textContent=title||'YouTube 영상';
-  $('youtube-dialog-link').href=url;
+  const box=$('youtube-player-box'),slot=$('youtube-embed-slot'),generation=youtubePreviewEpoch;
+  if(!box||!slot)return;
+  const YT=await youtubeIframeApi();
+  if(!YT||generation!==youtubePreviewEpoch||!box.isConnected)return;
+  // 썸네일을 남겨둔 채 백그라운드에서 iframe 준비. 성공한 경우에만 표시한다.
   const iframe=document.createElement('iframe');
-  iframe.title='YouTube 영상 재생';
+  iframe.title='YouTube 영상 재생';iframe.width='100%';iframe.height='100%';
   iframe.referrerPolicy='strict-origin-when-cross-origin';
-  iframe.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';
-  iframe.allowFullscreen=true;
-  iframe.src='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(id)+'?autoplay=1&playsinline=1';
-  dialog.showModal();
-  container.append(iframe);
+  iframe.allow='encrypted-media; picture-in-picture; fullscreen';iframe.allowFullscreen=true;
+  iframe.src='https://www.youtube-nocookie.com/embed/'+id+'?enablejsapi=1&playsinline=1&origin='+encodeURIComponent(location.origin);
+  slot.append(iframe);
+  let instance=null,failed=false,ready=false;
+  const fallback=()=>{
+    if(generation!==youtubePreviewEpoch||failed)return;
+    failed=true;box.classList.remove('has-player');
+    try{(instance||{destroy:()=>iframe.remove()}).destroy()}catch{iframe.remove()}
+    if(youtubePlayer===instance)youtubePlayer=null;
+  };
+  try{
+    instance=new YT.Player(iframe,{events:{
+      onReady:()=>{
+        if(generation!==youtubePreviewEpoch||!box.isConnected||failed)return;
+        ready=true;box.classList.add('has-player');
+      },
+      onError:()=>fallback()
+    }});
+    if(failed){try{instance.destroy()}catch{}}
+    else youtubePlayer=instance;
+    setTimeout(()=>{if(!ready&&generation===youtubePreviewEpoch)fallback()},10000);
+  }catch{fallback()}
 }
 function render(){renderCounts();renderCards();renderDetail()}
 function setFilter(status,dated=false){shownCount=PAGE_SIZE;activeFilter=status;onlyDated=dated;activeTag=null;$('detail').classList.remove('show-mobile');render()}
@@ -631,11 +675,6 @@ document.addEventListener('click',e=>{
 $('cards').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('.card')){e.preventDefault();e.target.click()}});
 $('example').addEventListener('click',fillDemo);
 $('modal-close').addEventListener('click',closeModal);
-$('youtube-dialog-close').addEventListener('click',()=>$('youtube-dialog').close());
-$('youtube-dialog').addEventListener('close',()=>$('youtube-dialog-video').replaceChildren());
-$('youtube-dialog').addEventListener('click',event=>{
-  if(event.target===$('youtube-dialog'))$('youtube-dialog').close();
-});
 $('modal-backdrop').addEventListener('click',e=>{if(e.target===$('modal-backdrop'))closeModal()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
 for(const id of ['f-title','f-note'])$(id).addEventListener('input',()=>{if(!$('f-date').value){const found=extractDate($('f-title').value+' '+$('f-note').value);if(found)$('f-date').value=found}});
