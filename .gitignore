@@ -27,3 +27,7 @@ secrets.*
 # Private user scrap exports should never be committed.
 moadoogi-*.json
 *backup*.json
+
+# Cloudflare local state and JavaScript dependencies
+**/.wrangler/
+**/node_modules/

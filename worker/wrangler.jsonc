@@ -12,7 +12,7 @@
     {
       "binding": "DB",
       "database_name": "moadoogi",
-      "database_id": "REPLACE_WITH_D1_DATABASE_UUID",
+      "database_id": "b6c5f2f4-4bc1-4228-8f85-7ef2e27f42f5",
       "migrations_dir": "migrations"
     }
   ]
