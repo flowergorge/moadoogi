@@ -114,11 +114,17 @@ html[data-theme="dark"] .kind-icon.dcinside,html[data-theme="dark"] .kind-icon.a
 html[data-theme="dark"] .kind-icon.website.has-favicon{background:#fff;border-color:#fff}
 @media(max-width:560px){.tag-filter-banner{flex-wrap:wrap}}
 .card-url{margin:2px 0 9px;min-width:0}
+.external-url-actions{display:inline-flex;align-items:center;gap:4px;max-width:100%;min-width:0;vertical-align:middle}
+.external-url-actions .external-url{min-width:0;flex:0 1 auto}
+.copy-url-button{appearance:none;display:grid;place-items:center;flex:0 0 28px;width:28px;height:28px;padding:5px;border:0;border-radius:6px;background:transparent;color:var(--sub);cursor:pointer}
+.copy-url-button svg{width:16px;height:16px}
+.copy-url-button:hover{background:var(--purple-light);color:var(--purple)}
+.copy-url-button:focus-visible{outline:2px solid var(--purple);outline-offset:2px}
 .external-url{display:inline-flex;align-items:center;max-width:100%;gap:6px;color:var(--purple);font-size:11px;font-weight:650;text-decoration:none;vertical-align:middle}
 .external-url-label{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .external-url svg{width:14px;height:14px;flex:none}
 .external-url:hover{text-decoration:underline}
-.detail .url .external-url{font-size:12px;max-width:100%;width:100%;word-break:normal}
+.detail .url .external-url{font-size:12px;max-width:100%;word-break:normal}
 .detail .url .external-url-label{white-space:normal;overflow-wrap:anywhere;flex:0 1 auto}
 .x-card-body{background:var(--purple-light);border:1px solid var(--line);padding:11px 12px;border-radius:10px;font-size:12px;line-height:1.6;color:var(--sub);white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto;margin:7px 0 10px}
 .card-note{font-size:12px;line-height:1.6;color:var(--sub);white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden;margin:4px 0 9px}

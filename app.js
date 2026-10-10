@@ -45,7 +45,25 @@ function itemTags(item){return [...new Set([...(Array.isArray(item.tags)?item.ta
 function originalLink(url,label='원본 주소'){
   const address=safeUrl(url);
   if(!address)return '';
-  return '<a class="external-url" href="'+escapeHtml(address)+'" target="_blank" rel="noopener noreferrer" title="원본을 새 탭에서 열기"><span class="external-url-label">'+escapeHtml(label)+'</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5h6v6M19 5l-9 9"/><path d="M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg></a>';
+  return '<span class="external-url-actions"><a class="external-url" href="'+escapeHtml(address)+'" target="_blank" rel="noopener noreferrer" title="원본을 새 탭에서 열기"><span class="external-url-label">'+escapeHtml(label)+'</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5h6v6M19 5l-9 9"/><path d="M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg></a><button type="button" class="copy-url-button" data-copy-url="'+escapeHtml(address)+'" aria-label="주소 복사" title="주소를 클립보드에 복사"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M5 16H4a1 1 0 0 1-1-1V5a2 2 0 0 1 2-2h10a1 1 0 0 1 1 1v1"/></svg></button></span>';
+}
+async function copyOriginalUrl(button){
+  const address=safeUrl(button.dataset.copyUrl);
+  if(!address)return;
+  let copied=false;
+  try{
+    if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(address);copied=true}
+  }catch{}
+  if(!copied){
+    const focused=document.activeElement;
+    const field=document.createElement('textarea');
+    field.value=address;field.readOnly=true;
+    field.style.cssText='position:fixed;left:-9999px;top:0;opacity:0;font-size:16px';
+    document.body.append(field);
+    try{field.focus({preventScroll:true});field.select();copied=document.execCommand('copy')}catch{}
+    finally{field.remove();if(focused?.isConnected)focused.focus({preventScroll:true})}
+  }
+  toast(copied?'주소를 복사했어요':'클립보드 복사가 제한됐어요. 주소를 직접 선택해 복사해 주세요.');
 }
 function urlLabel(url){try{const u=new URL(url);return u.hostname.replace(/^www\./,'')+u.pathname+(u.search||'')}catch{return url}}
 const SITE_LOGO={dcinside:'assets/dcinside.ico',arca:'assets/arca.svg',kone:'assets/kone.png'};
@@ -613,6 +631,8 @@ $('dated-stat').addEventListener('click',()=>setFilter('전체',true));
 $('search').addEventListener('input',e=>{shownCount=PAGE_SIZE;search=e.target.value.trim().toLowerCase();renderCards()});
 $('sort').addEventListener('change',e=>{shownCount=PAGE_SIZE;order=e.target.value;renderCards()});
 $('cards').addEventListener('click',e=>{
+  const copy=e.target.closest('[data-copy-url]');
+  if(copy){e.preventDefault();e.stopPropagation();void copyOriginalUrl(copy);return}
   if(e.target.closest('[data-load-more]')){
     shownCount+=PAGE_SIZE;renderCards();return;
   }
@@ -650,6 +670,8 @@ $('cards').addEventListener('click',e=>{
   if(b){selected=b.dataset.card;$('detail').classList.add('show-mobile');render();if(innerWidth<=900)$('detail').scrollIntoView({behavior:'smooth',block:'start'})}
 });
 $('detail').addEventListener('click',e=>{
+  const copy=e.target.closest('[data-copy-url]');
+  if(copy){e.preventDefault();e.stopPropagation();void copyOriginalUrl(copy);return}
   const star=e.target.closest('[data-toggle-star]');
   if(star){toggleStar(star.dataset.toggleStar);return}
   const tag=e.target.closest('[data-filter-tag]');
