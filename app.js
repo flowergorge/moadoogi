@@ -50,6 +50,17 @@ function urlLabel(url){try{const u=new URL(url);return u.hostname.replace(/^www\
 const SITE_LOGO={dcinside:'assets/dcinside.ico',arca:'assets/arca.svg',kone:'assets/kone.png'};
 function siteIcon(type){return SITE_LOGO[type]?'<img class="site-logo" src="'+SITE_LOGO[type]+'" alt="">':typeIcon(type)}
 function youtubeId(url){try{const u=new URL(url);if(u.hostname==='youtu.be')return u.pathname.slice(1).split('/')[0];if(/^\/(shorts|live|embed)\//.test(u.pathname))return u.pathname.split('/')[2];return u.searchParams.get('v')}catch{return null}}
+function githubPreviewUrl(value){
+  try{
+    const u=new URL(value);
+    if(!['http:','https:'].includes(u.protocol)||u.hostname.toLowerCase()!=='github.com')return '';
+    const [owner,repo]=u.pathname.split('/').filter(Boolean);
+    // GitHub 기능·사용자 페이지에는 저장소의 대표 이미지가 없다.
+    if(!owner||!repo||!/^[a-z\d](?:[a-z\d-]{0,38})$/i.test(owner)||!/^[a-z\d_.-]{1,100}$/i.test(repo))return '';
+    if(['about','apps','collections','enterprise','events','explore','features','issues','login','marketplace','new','notifications','orgs','organizations','pricing','pulls','search','security','settings','signup','sponsors','topics','users'].includes(owner.toLowerCase()))return '';
+    return 'https://opengraph.githubassets.com/1/'+encodeURIComponent(owner)+'/'+encodeURIComponent(repo);
+  }catch{return ''}
+}
 function kstDate(){return new Intl.DateTimeFormat('en-CA',{timeZone:KST,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}
 function humanDate(iso){return new Intl.DateTimeFormat('ko-KR',{timeZone:KST,year:'numeric',month:'long',day:'numeric'}).format(new Date(iso))}
 function humanDateTime(iso){return new Intl.DateTimeFormat('ko-KR',{timeZone:KST,year:'numeric',month:'2-digit',day:'2-digit',hour:'numeric',minute:'2-digit',second:'2-digit',hour12:true}).format(new Date(iso))}
@@ -328,6 +339,20 @@ function renderDetail(){
   const type=typeOf(item.url),id=youtubeId(item.url),url=safeUrl(item.url);
   const art=type==='youtube'&&id&&/^[\w-]{11}$/.test(id)?`<div class="youtube-player-box" id="youtube-player-box"><img loading="lazy" alt="유튜브 영상 썸네일" src="https://i.ytimg.com/vi/${encodeURIComponent(id)}/hqdefault.jpg"><a class="youtube-fallback" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">▶ YouTube에서 영상 보기 ↗</a></div>`:type==='x'&&/\/status\/\d+/.test(url)?`<div class="x-embed"><blockquote class="twitter-tweet" data-conversation="none"><a href="${escapeHtml(url)}">X 게시물 보기</a></blockquote></div>`:`<div class="preview-art ${type}"><div class="mark">${typeIcon(type)}</div><span>${typeName(type).toUpperCase()} PREVIEW</span></div>`;
   $('detail').innerHTML=`<div class="detail-head"><strong>🔖 상세 미리보기</strong><small>저장된 스크랩</small></div>${art}<h3>${escapeHtml(item.title)}</h3><div class="url">${escapeHtml(url||'직접 작성한 메모')}</div><div class="rule"></div><div class="detail-label">내용 및 메모</div><div class="description">${escapeHtml(item.note||'추가된 메모가 없어요.')}</div><div class="rule"></div><div class="detail-row"><span>현재 상태</span><select id="detail-status">${STATUS.slice(1).map(s=>`<option ${item.status===s?'selected':''}>${s}</option>`).join('')}</select></div><div class="detail-row"><span>저장한 날</span><strong>${escapeHtml(humanDate(item.created))}</strong></div>${item.date?`<div class="detail-row"><span>관련 날짜</span><strong>${escapeHtml(item.date)} (KST)</strong></div>`:''}<div class="detail-actions">${url?'<button class="secondary" id="open-link">↗ 원본 열기</button>':''}${item.date?'<button class="secondary" id="to-calendar">▤ 캘린더 추가</button>':''}<button class="subtle" id="edit">수정</button><button class="subtle" id="delete">삭제</button></div>${type==='x'?'<p class="footnote">X 글은 공개 게시물의 개별 주소가 있을 때 실제 서비스에서 공식 임베드를 연결할 수 있어요.</p>':''}`;
+  const githubImage=githubPreviewUrl(url);
+  if(githubImage){
+    const placeholder=$('detail').querySelector('.preview-art.github');
+    if(placeholder){
+      const frame=document.createElement('a');
+      frame.className='github-preview-box';frame.href=url;frame.target='_blank';frame.rel='noopener noreferrer';
+      frame.setAttribute('aria-label','GitHub 저장소 열기');
+      const image=document.createElement('img');
+      image.src=githubImage;image.loading='lazy';image.alt='GitHub 저장소 대표 이미지';image.referrerPolicy='no-referrer';
+      image.addEventListener('error',()=>{if(frame.isConnected)frame.replaceWith(placeholder)});
+      const action=document.createElement('span');action.className='github-preview-action';action.textContent='GitHub에서 보기 ↗';
+      frame.append(image,action);placeholder.replaceWith(frame);
+    }
+  }
   const memoInput=document.createElement('textarea');
   memoInput.id='detail-note';memoInput.className='detail-note-input detail-composer-textarea';memoInput.rows=6;
   memoInput.placeholder='내용이나 메모를 이곳에 바로 작성하세요.';

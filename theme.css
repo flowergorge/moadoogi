@@ -128,6 +128,12 @@ html[data-theme="dark"] .kind-icon.dcinside,html[data-theme="dark"] .kind-icon.a
 .youtube-fallback:hover{background:#3c4160}
 .youtube-player-box.has-player .youtube-fallback{position:absolute;bottom:8px;right:8px;padding:6px 8px;font-size:10px;opacity:.6}
 .youtube-player-box.has-player>img{display:none}
+.github-preview-box{position:relative;display:block;width:100%;aspect-ratio:2/1;overflow:hidden;border-radius:13px;background:#f2f4f8;text-decoration:none;border:1px solid var(--line)}
+.github-preview-box img{display:block;width:100%;height:100%;object-fit:contain}
+.github-preview-action{position:absolute;right:8px;bottom:8px;padding:6px 9px;border-radius:7px;background:#151c2bdb;color:#fff;font-size:10px;font-weight:800}
+.github-preview-box:hover .github-preview-action{background:#433b83}
+.github-preview-box:focus-visible{outline:2px solid var(--purple);outline-offset:3px}
+html[data-theme="dark"] .github-preview-box{background:#222936}
 @media(max-width:560px){.card-url .external-url{font-size:10px}.x-card-body{font-size:11px}}
 .load-more{display:flex;flex-direction:column;align-items:center;gap:10px;padding:14px 0 8px}
 .load-more-progress{font-size:11px;color:var(--muted);font-weight:650}
