@@ -79,6 +79,11 @@
     </section>
   </div>
   <div class="toast" id="toast" role="status"></div>
+  <dialog id="youtube-dialog" class="youtube-dialog" aria-labelledby="youtube-dialog-title">
+    <div class="youtube-dialog-head"><strong id="youtube-dialog-title">YouTube 영상</strong><button type="button" id="youtube-dialog-close" aria-label="영상 닫기">✕ 닫기</button></div>
+    <div id="youtube-dialog-video" class="youtube-dialog-video"></div>
+    <div class="youtube-dialog-foot"><span>외부 재생이 제한된 영상은 YouTube에서 열어 주세요.</span><a id="youtube-dialog-link" href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer">YouTube에서 열기 ↗</a></div>
+  </dialog>
   <script src="./cloud-config.js" defer></script>
   <script src="./cloud-client.js" defer></script>
   <script src="./app.js" defer></script>
