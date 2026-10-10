@@ -478,7 +478,43 @@ function stripHtml(html) {
   );
 }
 
-export function extractHtmlMetadata(html) {
+function htmlAttributes(tag) {
+  const result = {};
+  for (const match of tag.matchAll(/([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>]+))/g)) {
+    result[match[1].toLowerCase()] = decodeEntities(match[2] ?? match[3] ?? match[4]);
+  }
+  return result;
+}
+
+// Return an original-site URL only; never fetch, proxy, or store the icon bytes.
+export function extractFaviconUrl(html, pageUrl) {
+  let base;
+  try { base = validatePublicHttpsUrl(pageUrl); } catch { return ''; }
+  const source = String(html).replace(/<!--[\s\S]*?-->/g, '').replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
+  const baseTag = source.match(/<base\b[^>]{0,4096}>/i);
+  if (baseTag) {
+    const href = htmlAttributes(baseTag[0]).href;
+    if (href) try { base = validatePublicHttpsUrl(new URL(href, base).href); } catch {}
+  }
+  const candidates = [];
+  for (const match of source.matchAll(/<link\b[^>]{0,4096}>/gi)) {
+    const attrs = htmlAttributes(match[0]);
+    const rel = (attrs.rel || '').toLowerCase().split(/\s+/);
+    const regular = rel.includes('icon');
+    if (!regular && !rel.includes('apple-touch-icon') && !rel.includes('apple-touch-icon-precomposed')) continue;
+    if (!attrs.href) continue;
+    try {
+      const url = validatePublicHttpsUrl(new URL(attrs.href, base).href).href;
+      const size = Math.max(0, ...[...(attrs.sizes || '').matchAll(/(?:^|\s)(\d+)x\d+/g)].map(m => Math.min(96, Number(m[1]))));
+      const vector = /svg/i.test(attrs.type || '') || /\.svg(?:[?#]|$)/i.test(url);
+      candidates.push({ url, score: (regular ? 200 : 0) + (vector ? 100 : size) });
+    } catch { /* Ignore non-public, insecure, data:, or malformed icon references. */ }
+  }
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0]?.url || '';
+}
+
+export function extractHtmlMetadata(html, pageUrl) {
   const tags = [...String(html).matchAll(/<meta\b[^>]{0,4096}>/gi)];
   const meta = {};
   for (const match of tags) {
@@ -494,7 +530,8 @@ export function extractHtmlMetadata(html) {
   const title = cleanText(meta['og:title'] || meta['twitter:title'] || (titleTag && titleTag[1]) || '');
   const author = cleanText(meta.author || meta['article:author'] || meta['twitter:creator'] || '', 180);
   const text = cleanText(meta['og:description'] || meta.description || meta['twitter:description'] || '', 2500);
-  return Object.fromEntries(Object.entries({ title, author, text }).filter(([, value]) => value));
+  const favicon = extractFaviconUrl(html, pageUrl);
+  return Object.fromEntries(Object.entries({ title, author, text, favicon }).filter(([, value]) => value));
 }
 
 function parseOembedJson(body) {
@@ -540,7 +577,7 @@ async function getMetadata(request) {
   }
 
   const result = await fetchPublicText(target.href, 'html', signal);
-  return extractHtmlMetadata(result.body);
+  return extractHtmlMetadata(result.body, result.url);
 }
 
 async function route(request, env) {

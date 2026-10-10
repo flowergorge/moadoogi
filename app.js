@@ -168,6 +168,7 @@ async function loadMetadataForItem(item){
     else{const response=await fetch(endpoint,{signal:AbortSignal.timeout(9000)});if(!response.ok)return;result=await response.json()}
     const current=records.find(x=>x.id===item.id);
     if(!current||current.url!==item.url)return;
+    if(typeOf(current.url)==='website')window.MoadoogiFavicons?.remember(current.url,result.favicon);
     if(isX){
       let changed=false;
       if(result.author&&current.title===initialTitle){
@@ -318,6 +319,10 @@ function renderCards(){
     const type=typeOf(item.url);return `<article class="card ${item.id===selected?'selected':''}" data-card="${escapeHtml(item.id)}" role="button" tabindex="0" aria-label="${escapeHtml(item.title)} 상세보기"><input data-check="${escapeHtml(item.id)}" type="checkbox" ${item.status==='완료'?'checked':''} aria-label="완료 표시"><div class="kind-icon ${type}">${typeIcon(type)}</div><div class="card-main"><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.note||item.url||'내가 저장한 텍스트')}</p><div class="tags"><span class="tag">${typeName(type)}</span>${item.date?`<span class="tag date">▤ ${escapeHtml(item.date)}</span>`:''}</div></div><div class="card-end"><span class="card-time">${escapeHtml(savedDate(item.created))}</span><span class="status status-${escapeHtml(item.status)}">${escapeHtml(item.status)}</span></div></article>`;
   }).join(''):'<div class="empty"><div style="font-size:26px">📭</div><strong>해당하는 항목이 없어요</strong>필터를 바꾸거나 새 항목을 추가해 보세요.</div>';
   decorateCards(list);
+  document.querySelectorAll('#cards [data-card]').forEach((card,index)=>{
+    const item=list[index];
+    if(item&&typeOf(item.url)==='website')window.MoadoogiFavicons?.mount(card.querySelector('.kind-icon.website'),item.url);
+  });
   if(list.length<all.length){
     const remaining=all.length-list.length;
     const section=document.createElement('div');
@@ -342,6 +347,17 @@ function renderDetail(){
   const art=type==='youtube'&&id&&/^[\w-]{11}$/.test(id)?`<div class="youtube-player-box" id="youtube-player-box"><a class="youtube-poster" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="YouTube에서 원본 영상 열기"><img loading="lazy" alt="유튜브 영상 썸네일" src="https://i.ytimg.com/vi/${encodeURIComponent(id)}/hqdefault.jpg"><span class="youtube-original">▶ YouTube에서 열기 ↗</span></a><div class="youtube-embed-slot" id="youtube-embed-slot"></div></div>`:type==='x'&&/\/status\/\d+/.test(url)?`<div class="x-embed"><blockquote class="twitter-tweet" data-conversation="none"><a href="${escapeHtml(url)}">X 게시물 보기</a></blockquote></div>`:`<div class="preview-art ${type}"><div class="mark">${typeIcon(type)}</div><span>${typeName(type).toUpperCase()} PREVIEW</span></div>`;
   $('detail').innerHTML=`<div class="detail-head"><strong>🔖 상세 미리보기</strong><small>저장된 스크랩</small></div>${art}<h3>${escapeHtml(item.title)}</h3><div class="url">${escapeHtml(url||'직접 작성한 메모')}</div><div class="rule"></div><div class="detail-label">내용 및 메모</div><div class="description">${escapeHtml(item.note||'추가된 메모가 없어요.')}</div><div class="rule"></div><div class="detail-row"><span>현재 상태</span><select id="detail-status">${STATUS.slice(1).map(s=>`<option ${item.status===s?'selected':''}>${s}</option>`).join('')}</select></div><div class="detail-row"><span>저장한 날</span><strong>${escapeHtml(humanDate(item.created))}</strong></div>${item.date?`<div class="detail-row"><span>관련 날짜</span><strong>${escapeHtml(item.date)} (KST)</strong></div>`:''}<div class="detail-actions">${url?'<button class="secondary" id="open-link">↗ 원본 열기</button>':''}${item.date?'<button class="secondary" id="to-calendar">▤ 캘린더 추가</button>':''}<button class="subtle" id="edit">수정</button><button class="subtle" id="delete">삭제</button></div>${type==='x'?'<p class="footnote">X 글은 공개 게시물의 개별 주소가 있을 때 실제 서비스에서 공식 임베드를 연결할 수 있어요.</p>':''}`;
   const githubImage=githubPreviewUrl(url);
+  if(type==='website'&&url){
+    const preview=$('detail').querySelector('.preview-art.website');
+    if(preview){
+      const label=preview.querySelector('span');
+      window.MoadoogiFavicons?.mount(preview.querySelector('.mark'),url,{
+        onLoad:()=>{label.textContent=new URL(url).hostname.replace(/^www\./,'');preview.classList.add('has-favicon')},
+        onError:()=>{label.textContent='WEBSITE PREVIEW';preview.classList.remove('has-favicon')}
+      });
+      if(window.MoadoogiCloud?.isReady())void window.MoadoogiFavicons?.discover(url,address=>window.MoadoogiCloud.metadata(address));
+    }
+  }
   if(githubImage){
     const placeholder=$('detail').querySelector('.preview-art.github');
     if(placeholder){
