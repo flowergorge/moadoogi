@@ -414,7 +414,7 @@ async function readLimited(response, max, allowTruncate) {
   return decoder.decode(buffer);
 }
 
-async function fetchPublicText(initial, kind, signal) {
+async function fetchPublicText(initial, kind, signal, headers = {}) {
   let current = validatePublicHttpsUrl(initial);
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects++) {
     let response;
@@ -423,7 +423,8 @@ async function fetchPublicText(initial, kind, signal) {
         method: 'GET',
         redirect: 'manual',
         headers: {
-          Accept: kind === 'html' ? 'text/html, application/xhtml+xml;q=0.9' : 'application/json'
+          Accept: kind === 'html' ? 'text/html, application/xhtml+xml;q=0.9' : 'application/json',
+          ...headers
         },
         signal
       });
@@ -544,6 +545,66 @@ function parseOembedJson(body) {
   }
 }
 
+
+export function bilibiliVideo(value) {
+  let u;
+  try { u = validatePublicHttpsUrl(value); } catch { return null; }
+  if (u.hostname !== 'bilibili.com' && !u.hostname.endsWith('.bilibili.com')) return null;
+  const match = /^\/video\/(BV[0-9A-Za-z]{10}|av[1-9]\d{0,19})(?:\/|$)/.exec(u.pathname);
+  return match ? { key: match[1].startsWith('BV') ? 'bvid' : 'aid', id: match[1].replace(/^av/, '') } : null;
+}
+export function bilibiliThumbnail(value) {
+  try {
+    const url = validatePublicHttpsUrl(String(value || '').replace(/^(?:http:)?\/\//, 'https://'));
+    return url.hostname.endsWith('.hdslb.com') ? url.href : '';
+  } catch { return ''; }
+}
+async function resolveBilibiliShort(target, signal) {
+  let current = target;
+  for (let count = 0; count < MAX_REDIRECTS; count++) {
+    if (current.hostname !== 'b23.tv') return current;
+    const response = await fetch(current.href, { redirect: 'manual', signal });
+    await response.body?.cancel();
+    if (![301,302,303,307,308].includes(response.status)) return current;
+    const location = response.headers.get('Location');
+    if (!location) return current;
+    const next = validatePublicHttpsUrl(new URL(location, current).href);
+    if (next.hostname !== 'b23.tv' && next.hostname !== 'bilibili.com' && !next.hostname.endsWith('.bilibili.com')) {
+      failure(422, 'invalid_redirect', 'Bilibili share link redirected outside Bilibili');
+    }
+    current = next;
+  }
+  return current;
+}
+export async function getBilibiliMetadata(target, signal) {
+  if (target.hostname === 'b23.tv') target = await resolveBilibiliShort(target, signal);
+  const video = bilibiliVideo(target.href);
+  if (video) {
+    try {
+      const endpoint = 'https://api.bilibili.com/x/web-interface/view?' + new URLSearchParams({ [video.key]: video.id });
+      const response = await fetchPublicText(endpoint, 'json', signal, { 'User-Agent': 'Mozilla/5.0', Referer: 'https://www.bilibili.com/' });
+      const data = JSON.parse(response.body);
+      if (data.code === 0 && data.data) {
+        const title = cleanText(data.data.title);
+        const thumbnail = bilibiliThumbnail(data.data.pic);
+        const author = cleanText(data.data.owner?.name, 180);
+        if (title || thumbnail) return { ...(title ? { title } : {}), ...(thumbnail ? { thumbnail } : {}), ...(author ? { author } : {}) };
+      }
+    } catch { /* Unavailable public API falls back to the original page. */ }
+  }
+  const response = await fetchPublicText(target.href, 'html', signal);
+  const result = extractHtmlMetadata(response.body, response.url);
+  if (bilibiliVideo(response.url)) {
+    for (const match of response.body.matchAll(/<meta\b[^>]{0,4096}>/gi)) {
+      const attrs = htmlAttributes(match[0]);
+      if (!['og:image', 'twitter:image'].includes((attrs.property || attrs.name || '').toLowerCase())) continue;
+      const thumbnail = bilibiliThumbnail(attrs.content);
+      if (thumbnail) { result.thumbnail = thumbnail; break; }
+    }
+  }
+  return result;
+}
+
 async function getMetadata(request) {
   const raw = new URL(request.url).searchParams.get('url') || '';
   const target = validatePublicHttpsUrl(raw);
@@ -551,6 +612,10 @@ async function getMetadata(request) {
   const isYoutube = ['youtube.com', 'm.youtube.com', 'youtu.be', 'youtube-nocookie.com'].includes(host);
   const isX = ['x.com', 'twitter.com', 'mobile.twitter.com'].includes(host);
   const signal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
+
+  if (host === 'bilibili.com' || host.endsWith('.bilibili.com') || host === 'b23.tv') {
+    return getBilibiliMetadata(target, signal);
+  }
 
   if (isYoutube || isX) {
     const endpoint = isYoutube

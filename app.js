@@ -33,10 +33,10 @@ function setTheme(value){
 }
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function safeUrl(str){try{const u=new URL(str);return ['https:','http:'].includes(u.protocol)?u.href:''}catch{return ''}}
-function typeOf(url){try{const h=new URL(url).hostname.toLowerCase();if(h==='youtu.be'||h==='youtube.com'||h.endsWith('.youtube.com'))return 'youtube';if(h==='x.com'||h.endsWith('.x.com')||h==='twitter.com'||h.endsWith('.twitter.com'))return 'x';if(h==='github.com')return 'github';if(h==='dcinside.com'||h.endsWith('.dcinside.com'))return 'dcinside';if(h==='arca.live'||h.endsWith('.arca.live'))return 'arca';if(h==='kone.gg'||h.endsWith('.kone.gg'))return 'kone';return 'website'}catch{return 'note'}}
-function typeIcon(type){return SITE_LOGO[type]?siteIcon(type):{youtube:'▶',x:'𝕏',github:'⌘',website:'↗',note:'✎'}[type]}
-function typeName(type){return {youtube:'YouTube',x:'X · 게시글',github:'GitHub',dcinside:'디시인사이드',arca:'아카라이브',kone:'코네',website:'웹사이트',note:'텍스트'}[type]}
-function automaticTag(url){return {dcinside:'디시인사이드',arca:'아카라이브',kone:'코네',youtube:'유튜브',github:'깃허브',x:'X게시글',website:'웹사이트'}[typeOf(url)]||''}
+function typeOf(url){try{const h=new URL(url).hostname.toLowerCase();if(h==='youtu.be'||h==='youtube.com'||h.endsWith('.youtube.com'))return 'youtube';if(h==='bilibili.com'||h.endsWith('.bilibili.com')||h==='b23.tv')return 'bilibili';if(h==='x.com'||h.endsWith('.x.com')||h==='twitter.com'||h.endsWith('.twitter.com'))return 'x';if(h==='github.com')return 'github';if(h==='dcinside.com'||h.endsWith('.dcinside.com'))return 'dcinside';if(h==='arca.live'||h.endsWith('.arca.live'))return 'arca';if(h==='kone.gg'||h.endsWith('.kone.gg'))return 'kone';return 'website'}catch{return 'note'}}
+function typeIcon(type){return SITE_LOGO[type]?siteIcon(type):{youtube:'▶',bilibili:'▣',x:'𝕏',github:'⌘',website:'↗',note:'✎'}[type]}
+function typeName(type){return {youtube:'YouTube',bilibili:'비리비리',x:'X · 게시글',github:'GitHub',dcinside:'디시인사이드',arca:'아카라이브',kone:'코네',website:'웹사이트',note:'텍스트'}[type]}
+function automaticTag(url){return {dcinside:'디시인사이드',arca:'아카라이브',kone:'코네',youtube:'유튜브',bilibili:'비리비리',github:'깃허브',x:'X게시글',website:'웹사이트'}[typeOf(url)]||''}
 function xAuthorFromUrl(url){
   try{
     const username=new URL(url).pathname.split('/').filter(Boolean)[0];
@@ -141,6 +141,7 @@ function parseClip(raw){
   const titleLine=note.split(/\r?\n/).map(t=>t.trim()).find(Boolean)||'';
   let fallback='나중에 확인할 텍스트';
   if(type==='youtube')fallback='YouTube에서 저장한 영상';
+  else if(type==='bilibili')fallback='비리비리에서 저장한 영상';
   else if(type==='x'){
     const user=new URL(url).pathname.split('/')[1];
     fallback=user?'X에서 저장한 게시글 · @'+user:'X에서 저장한 게시글';
@@ -184,7 +185,7 @@ async function loadMetadataForItem(item){
   const endpoint='http://127.0.0.1:18976/api/'+(isX?'x':'title')+'?url='+encodeURIComponent(item.url);
   try{
     let result;
-    if(useCloud){result=await cloud.metadata(item.url);if(!result)return}
+    if(useCloud){result=await (typeOf(item.url)==='bilibili'?window.MoadoogiBilibili.metadata(item.url,address=>cloud.metadata(address)):cloud.metadata(item.url));if(!result)return}
     else{const response=await fetch(endpoint,{signal:AbortSignal.timeout(9000)});if(!response.ok)return;result=await response.json()}
     const current=records.find(x=>x.id===item.id);
     if(!current||current.url!==item.url)return;
@@ -368,6 +369,9 @@ function renderDetail(){
   const type=typeOf(item.url),id=youtubeId(item.url),url=safeUrl(item.url);
   const art=type==='youtube'&&id&&/^[\w-]{11}$/.test(id)?`<div class="youtube-player-box" id="youtube-player-box"><a class="youtube-poster" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="YouTube에서 원본 영상 열기"><img loading="lazy" alt="유튜브 영상 썸네일" src="https://i.ytimg.com/vi/${encodeURIComponent(id)}/hqdefault.jpg"><span class="youtube-original">▶ YouTube에서 열기 ↗</span></a><div class="youtube-embed-slot" id="youtube-embed-slot"></div></div>`:type==='x'&&/\/status\/\d+/.test(url)?`<div class="x-embed"><blockquote class="twitter-tweet" data-conversation="none"><a href="${escapeHtml(url)}">X 게시물 보기</a></blockquote></div>`:`<div class="preview-art ${type}"><div class="mark">${typeIcon(type)}</div><span>${typeName(type).toUpperCase()} PREVIEW</span></div>`;
   $('detail').innerHTML=`<div class="detail-head"><strong>🔖 상세 미리보기</strong><small>저장된 스크랩</small></div>${art}<h3>${escapeHtml(item.title)}</h3><div class="url">${escapeHtml(url||'직접 작성한 메모')}</div><div class="rule"></div><div class="detail-label">내용 및 메모</div><div class="description">${escapeHtml(item.note||'추가된 메모가 없어요.')}</div><div class="rule"></div><div class="detail-row"><span>현재 상태</span><select id="detail-status">${STATUS.slice(1).map(s=>`<option ${item.status===s?'selected':''}>${s}</option>`).join('')}</select></div><div class="detail-row"><span>저장한 날</span><strong>${escapeHtml(humanDate(item.created))}</strong></div>${item.date?`<div class="detail-row"><span>관련 날짜</span><strong>${escapeHtml(item.date)} (KST)</strong></div>`:''}<div class="detail-actions">${url?'<button class="secondary" id="open-link">↗ 원본 열기</button>':''}${item.date?'<button class="secondary" id="to-calendar">▤ 캘린더 추가</button>':''}<button class="subtle" id="edit">수정</button><button class="subtle" id="delete">삭제</button></div>${type==='x'?'<p class="footnote">X 글은 공개 게시물의 개별 주소가 있을 때 실제 서비스에서 공식 임베드를 연결할 수 있어요.</p>':''}`;
+  if(type==='bilibili'&&url&&window.MoadoogiCloud?.isReady()){
+    void window.MoadoogiBilibili.mount($('detail').querySelector('.preview-art.bilibili'),url,address=>window.MoadoogiCloud.metadata(address));
+  }
   const githubImage=githubPreviewUrl(url);
   if(type==='website'&&url){
     const preview=$('detail').querySelector('.preview-art.website');

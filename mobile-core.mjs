@@ -27,7 +27,7 @@ export function buildShareItem(share, now = new Date()) {
   if (note.length > 5000) throw Error('메모는 5,000자까지 저장할 수 있어요. 짧게 나누어 공유해 주세요.');
   const host = url ? new URL(url).hostname.toLowerCase() : '';
   const is = name => host === name || host.endsWith('.' + name);
-  const tag = is('youtube.com') || is('youtu.be') ? '유튜브' : is('github.com') ? '깃허브' : is('x.com') || is('twitter.com') ? 'X게시글' : is('arca.live') ? '아카라이브' : is('dcinside.com') ? '디시인사이드' : is('kone.gg') ? '코네' : url ? '웹사이트' : '';
+  const tag = is('youtube.com') || is('youtu.be') ? '유튜브' : is('bilibili.com') || host === 'b23.tv' ? '비리비리' : is('github.com') ? '깃허브' : is('x.com') || is('twitter.com') ? 'X게시글' : is('arca.live') ? '아카라이브' : is('dcinside.com') ? '디시인사이드' : is('kone.gg') ? '코네' : url ? '웹사이트' : '';
   const title = (share.title || note.split(/\r?\n/).find(Boolean) || (url ? host.replace(/^www\./, '') + '에서 공유한 링크' : '공유한 텍스트')).slice(0, 180);
   if (note === share.title) note = '';
   const item = { id: 'android-' + share.id, title, url, note, tags: tag ? [tag] : [], status: '관심', date: '', created: now.toISOString(), rank: -now.getTime() / 1000, starred: false, autoTagsApplied: true };

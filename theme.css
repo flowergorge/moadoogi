@@ -232,3 +232,12 @@ html[data-theme="dark"] .calendar-controls input{color-scheme:dark}
 .calendar-hint{margin:14px 0 0;font-size:11px;color:var(--sub);line-height:1.6}
 .calendar-page button:focus-visible,.calendar-page input:focus-visible{outline:2px solid var(--purple);outline-offset:-2px}
 @media(max-width:560px){.calendar-page{padding:10px;border-radius:12px}.calendar-toolbar{gap:12px;margin-bottom:12px;padding:4px}.calendar-toolbar h2{font-size:20px}.calendar-controls{width:100%;justify-content:flex-end}.calendar-day{min-height:105px;padding:3px}.calendar-date{font-size:11px;flex-wrap:wrap}.calendar-date>span{width:23px;height:23px}.calendar-date small{font-size:9px}.calendar-event{font-size:10px;padding:4px 2px;gap:3px}.calendar-status-dot{width:4px;height:4px}.calendar-more{font-size:9px;padding:2px 0}.calendar-hint{font-size:10px}.calendar-view .section-title h2{font-size:15px}}
+
+/* Bilibili images are loaded directly from its CDN; no image proxy/storage. */
+.kind-icon.bilibili{background:#e7f7fd;color:#168eb9}
+.preview-art.bilibili{background:linear-gradient(135deg,#dcf5ff,#fce9f2);color:#138daf}
+.bilibili-preview-box{position:relative;display:block;width:100%;aspect-ratio:16/9;overflow:hidden;border-radius:13px;background:var(--surface);text-decoration:none;border:1px solid var(--line)}
+.bilibili-preview-box img{display:block;width:100%;height:100%;object-fit:contain}
+.bilibili-preview-action{position:absolute;right:8px;bottom:8px;padding:6px 9px;border-radius:7px;background:#151c2bdb;color:#fff;font-size:10px;font-weight:800}
+.bilibili-preview-box:focus-visible{outline:2px solid var(--purple);outline-offset:3px}
+html[data-theme="dark"] .kind-icon.bilibili{background:#263d4c;color:#8cdbf7}
