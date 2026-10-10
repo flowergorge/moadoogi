@@ -19,6 +19,21 @@ const snap=items=>new Map(items.map(item=>[item.id,JSON.stringify(item)]));
 let app,auth,authLib,user,ready=false,loading=false,flushing=false,epoch=0,lastPull=0,changeVersion=0;
 let baseline=new Map(),pending=new Map(),flushTimer=null;
 function status(message,mode='idle'){const el=$('cloud-status');if(el){el.textContent=message;el.dataset.state=mode}}
+function describeCloudError(error){
+  const known={
+    key_service_unavailable:'구글 인증키 서버에 일시적으로 연결할 수 없어요',
+    invalid_token:'로그인 인증이 유효하지 않아요. 재로그인해 주세요',
+    authorization_required:'로그인 인증정보가 전달되지 않았어요',
+    origin_forbidden:'웹앱 접속 주소가 서버에서 허용되지 않았어요',
+    rate_limited:'요청이 너무 많아요. 잠시 후 다시 시도해 주세요',
+    not_configured:'클라우드 서버 설정을 확인해야 해요',
+    internal_error:'서버 내부 오류가 발생했어요'
+  };
+  if(known[error?.code])return known[error.code];
+  if(error?.name==='TimeoutError'||error?.name==='AbortError')return '서버 응답 시간이 초과됐어요';
+  if(error instanceof TypeError)return '인터넷 연결이나 서버 접속을 확인해 주세요';
+  return '서버 응답 오류'+(error?.status?' ('+error.status+')':'');
+}
 function buttons(){
   $('cloud-login').hidden=!configured||!!user;
   $('cloud-logout').hidden=!user;
@@ -40,7 +55,12 @@ async function api(path,options={}){
     signal:options.signal||AbortSignal.timeout(15000)
   });
   let data={};try{data=await response.json()}catch{}
-  if(!response.ok)throw Error(data.error||'서버 오류 '+response.status);
+  if(!response.ok){
+    const error=new Error(data.message||data.error||'서버 오류');
+    error.code=data.error;
+    error.status=response.status;
+    throw error;
+  }
   return data;
 }
 async function getAll(){
@@ -78,7 +98,7 @@ async function flush(){
       savePending();
     }
     status('✓ 동기화 완료','ok');
-  }catch{status('동기화 대기 · 연결을 확인해 주세요','error')}
+  }catch(error){status('동기화 대기 · '+describeCloudError(error),'error')}
   finally{flushing=false}
 }
 function queueFlush(){clearTimeout(flushTimer);flushTimer=setTimeout(()=>{void flush()},500)}
@@ -96,7 +116,7 @@ async function refresh(){
     baseline=snap(next);ready=true;lastPull=Date.now();
     status(pending.size?'☁ 전송 대기 중':'✓ 동기화 완료','ok');buttons();
     if(pending.size)queueFlush();
-  }catch{status('클라우드 연결 실패 · 재시도','error')}
+  }catch(error){status('클라우드 연결 실패 · '+describeCloudError(error),'error')}
   finally{loading=false}
 }
 function signedOut(){

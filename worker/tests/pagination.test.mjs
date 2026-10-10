@@ -89,8 +89,9 @@ test('pagination retrieves each item exactly once with stable sorting and 100/pa
   const db = createD1Mock(entries);
   const { idToken, jwksResponse } = await createAuth();
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async url => {
-    assert.match(String(url), /^https:\/\/www\.googleapis\.com\/service_accounts\/v1\/jwk\//);
+  globalThis.fetch = async (url, options) => {
+    assert.match(String(url), /^https:\/\/www\.googleapis\.com\/service_accounts\/v1\/metadata\/jwk\//);
+    assert.equal(options?.redirect, 'manual', 'Workers fetch must use a supported redirect policy');
     return new Response(JSON.stringify(jwksResponse), {
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=300' }
     });

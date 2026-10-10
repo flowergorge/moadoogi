@@ -1,4 +1,9 @@
-const JWKS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
+// Google provides Firebase Secure Token public keys through both endpoint forms.
+// Prefer the documented metadata/jwk URL; use the compatible legacy form as fallback.
+const JWKS_URLS = [
+  'https://www.googleapis.com/service_accounts/v1/metadata/jwk/securetoken@system.gserviceaccount.com',
+  'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'
+];
 const MAX_BODY_BYTES = 131072;
 const MAX_ITEM_BYTES = 12000;
 const MAX_SYNC_CHANGES = 100;
@@ -87,25 +92,35 @@ async function getGoogleKeys() {
   if (Date.now() < jwksCache.until && jwksCache.keys.length) return jwksCache.keys;
   if (!jwksInFlight) {
     jwksInFlight = (async () => {
-      let response;
-      try {
-        response = await fetch(JWKS_URL, { redirect: 'error', signal: AbortSignal.timeout(5000) });
-      } catch {
-        failure(503, 'key_service_unavailable', 'Authentication keys temporarily unavailable');
+      for (const url of JWKS_URLS) {
+        try {
+          // Cloudflare Workers does not support redirect: 'error' for fetch().
+          // Manual mode lets us reject any redirect without following it.
+          const response = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(5000) });
+          if (!response.ok) {
+            console.warn('Firebase signing keys fetch HTTP status', response.status);
+            continue;
+          }
+          const body = await response.json().catch(() => null);
+          if (!body || !Array.isArray(body.keys)) {
+            console.warn('Firebase signing keys response was not a JWK set');
+            continue;
+          }
+          const keys = body.keys.filter(key =>
+            key && key.kty === 'RSA' && key.alg === 'RS256' &&
+            key.use === 'sig' && typeof key.kid === 'string'
+          );
+          if (!keys.length) continue;
+          const match = /(?:^|,)\s*max-age=(\d+)/i.exec(response.headers.get('Cache-Control') || '');
+          const ttl = match ? Number(match[1]) : 300;
+          jwksCache = { keys, until: Date.now() + Math.max(60, Math.min(3600, ttl)) * 1000 };
+          return keys;
+        } catch (error) {
+          // Do not log JWTs or credentials.
+          console.warn('Firebase signing keys fetch failed', error?.name || 'network_error', String(error?.message || '').slice(0, 200));
+        }
       }
-      if (!response.ok) failure(503, 'key_service_unavailable', 'Authentication keys temporarily unavailable');
-      const body = await response.json().catch(() => null);
-      if (!body || !Array.isArray(body.keys) || body.keys.length === 0) {
-        failure(503, 'key_service_unavailable', 'Authentication keys temporarily unavailable');
-      }
-      const match = /(?:^|,)\s*max-age=(\d+)/i.exec(response.headers.get('Cache-Control') || '');
-      const ttl = match ? Number(match[1]) : 300;
-      jwksCache = {
-        keys: body.keys.filter(key => key && key.kty === 'RSA' && key.alg === 'RS256' && key.use === 'sig' && typeof key.kid === 'string'),
-        until: Date.now() + Math.max(60, Math.min(3600, ttl)) * 1000
-      };
-      if (!jwksCache.keys.length) failure(503, 'key_service_unavailable', 'Authentication keys temporarily unavailable');
-      return jwksCache.keys;
+      failure(503, 'key_service_unavailable', 'Authentication keys temporarily unavailable');
     })();
   }
   try {
