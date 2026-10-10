@@ -8,4 +8,8 @@
 .cloud-button{background:var(--surface);color:var(--purple);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:11px;font-weight:800;cursor:pointer}
 .cloud-button:hover{background:var(--purple-light);border-color:var(--purple)}
 .cloud-auth+.intro{margin-top:21px}
+.capture-helper{margin:6px 0 0;padding:0 12px 10px;color:var(--sub);font-size:11px;line-height:1.6}
+.capture-helper a{color:var(--purple);font-weight:800;text-decoration:underline;text-underline-offset:2px;cursor:grab}
+.capture-helper a:hover{color:var(--ink)}
+@media(max-width:720px){.capture-helper{display:none}}
 @media(max-width:560px){.cloud-auth{justify-content:flex-start;gap:5px}.cloud-status{flex:1 1 100%;font-size:10px}.cloud-button{font-size:10px;padding:7px 8px}.cloud-auth+.intro{margin-top:17px}}

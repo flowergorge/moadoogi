@@ -18,6 +18,7 @@ let activeFilter='관심', search='', order='manual', onlyDated=false, selected=
 let shownCount=PAGE_SIZE;
 let toastTimer;
 let lastCapture={value:'',time:0};
+let receivedPageShare=null;
 let draftTags=[],editTags=[],captureStarred=false,activeTag=null,openStatusMenu=null,draggedId=null,dropPosition=null;
 let theme='light';try{theme=localStorage.getItem(THEME_KEY)==='dark'?'dark':'light'}catch{}
 function setTheme(value){
@@ -128,13 +129,17 @@ function saveCapture(){
   const raw=$('capture-input').value.trim(),parsed=parseClip(raw);
   if(!parsed){toast('저장할 텍스트나 주소를 먼저 붙여넣어 주세요.');return}
   if(lastCapture.value===raw&&Date.now()-lastCapture.time<2000){$('capture-input').value='';updateCapture();return}
+  // 공유 북마크가 전달한 페이지 제목은 서버 크롤링 없이 그대로 사용한다.
+  const fromPageShare=receivedPageShare&&raw===receivedPageShare.text&&parsed.url===receivedPageShare.url;
+  if(fromPageShare){parsed.title=receivedPageShare.title;parsed.note=''}
+  receivedPageShare=null;
   const tags=[...new Set([...draftTags,...normalizeTags($('tag-input').value),automaticTag(parsed.url)].filter(Boolean))].slice(0,24);
   const item={id:'item-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),title:parsed.title,url:parsed.url,note:parsed.note,tags,autoTagsApplied:true,starred:captureStarred,status:'관심',date:parsed.date,created:new Date().toISOString(),rank:Math.min(0,...records.map(x=>x.rank))-1};
   lastCapture={value:raw,time:Date.now()};
   records=[item,...records];selected=item.id;activeFilter='관심';onlyDated=false;activeTag=null;shownCount=PAGE_SIZE;
   search='';$('search').value='';
   save();render();$('capture-input').value='';$('tag-input').value='';draftTags=[];renderDraftTags();setCaptureStar(false);updateCapture();
-  if(item.url)loadMetadataForItem(item);
+  if(item.url&&!fromPageShare)loadMetadataForItem(item);
   toast((parsed.date?'일정 '+parsed.date+'과 함께 ':'')+'관심 목록에 저장했어요');
 }
 async function loadMetadataForItem(item){
@@ -166,7 +171,10 @@ async function loadMetadataForItem(item){
       current.title=result.title.trim().slice(0,180);
     }
     save();render();toast(isX?'X 작성자·본문 정보를 가져왔어요':'게시글 제목을 자동으로 가져왔어요');
-  }catch{/* 제목 조회 서비스 미실행 또는 사이트 접근 제한 시 기존 제목 유지 */}
+  }catch{
+    if(typeOf(item.url)==='arca')toast('아카라이브가 제목 조회를 차단했어요. PC에서는 열린 페이지 수집 북마크를 사용해 주세요.');
+    // 제목 조회 실패 시 이미 저장한 스크랩과 기존 제목은 그대로 보존한다.
+  }
 }
 function save(){
   if(window.MoadoogiCloud?.isReady()){window.MoadoogiCloud.onLocalChange(records);return}
@@ -615,11 +623,35 @@ $('item-form').addEventListener('submit',e=>{
   save();closeModal();render();toast(old?'항목을 수정했어요':'항목을 저장했어요');
 });
 $('today').textContent=new Intl.DateTimeFormat('ko-KR',{timeZone:KST,month:'long',day:'numeric',weekday:'short'}).format(new Date());
+// 열린 페이지에서 북마크를 누르면 document.title과 URL을 모아두기로 전달한다.
+// URL fragment는 서버로 전송되지 않으며, 수신 직후 주소창에서 제거한다.
+const bookmarklet="javascript:(function(){var t=document.title||'';var u=location.href;var p=encodeURIComponent(JSON.stringify({title:t,url:u}));window.open('https://flowergorge.github.io/moadoogi/#share='+p,'_blank','noopener')})()";
+$('page-bookmarklet').setAttribute('href',bookmarklet);
+$('page-bookmarklet').addEventListener('click',event=>{
+  event.preventDefault();toast('이 링크를 북마크바에 끌어다 놓고, 저장할 게시글에서 해당 북마크를 누르세요.');
+});
+function receivePageShare(){
+  if(!location.hash.startsWith('#share='))return;
+  try{
+    const encoded=location.hash.slice(7);
+    if(encoded.length>20000)throw Error('공유 데이터가 너무 큽니다');
+    const payload=JSON.parse(decodeURIComponent(encoded));
+    const url=safeUrl(payload?.url);
+    const title=String(payload?.title||'').replace(/[\u0000-\u001f\u007f]/g,' ').trim().slice(0,180);
+    if(!url||!title||/^just a moment/i.test(title))throw Error('페이지 제목이나 주소가 없습니다');
+    receivedPageShare={url,title,text:title+'\n'+url};
+    $('capture-input').value=receivedPageShare.text;
+    updateCapture();
+    toast('페이지 제목과 주소를 받았어요. 스크랩을 눌러 저장하세요.');
+  }catch{toast('공유한 페이지의 제목과 주소를 읽을 수 없어요.')}
+  finally{history.replaceState(history.state,'',location.pathname+location.search)}
+}
 setTheme(theme);
 renderCaptureTime();
 setInterval(renderCaptureTime,1000);
 setInterval(()=>{if(!draggedId)renderCards()},60000);
 render();
+receivePageShare();
 window.MoadoogiCloud?.init({
   getRecords:()=>records,
   readLocalRecords:()=>{
