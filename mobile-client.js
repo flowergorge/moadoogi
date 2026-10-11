@@ -1,8 +1,9 @@
-import { parseShareFragment, buildShareItem, assertItemSize, errorMessage } from './mobile-core.mjs';
+import { parseShareFragment, buildShareItem, assertItemSize, errorMessage, normalizeShareTags, withShareTags, withSourceUrl, suggestedShareTags } from './mobile-core.mjs';
 
 const $ = id => document.getElementById(id);
 const captureMode = new URLSearchParams(location.search).get('capture') === '1';
 const draftKey = 'moadoogi-android-share-v1';
+let suggestions = suggestedShareTags(), suggestionEpoch = 0;
 let draft = null, auth, lib, user = null, busy = false, initialized = false, problem = '';
 function status(message, error = false) { $('status').textContent = message; $('status').classList.toggle('error', error); }
 function remember() {
@@ -12,6 +13,58 @@ function remember() {
 function previousDraft() {
   try { return JSON.parse(sessionStorage.getItem(draftKey) || 'null'); }
   catch { return null; }
+}
+function editable() { return draft && !busy && !draft.done && !draft.prepared; }
+function setTags(tags) {
+  if (!editable()) return;
+  try { draft.item = withShareTags(draft.item, tags); remember(); renderCaptureOptions(); }
+  catch (error) { status(errorMessage(error), true); }
+}
+function commitTagInput() {
+  if (!editable()) return;
+  const tags = normalizeShareTags($('tag-input').value);
+  draft.item = withShareTags(draft.item, [...draft.item.tags, ...tags]);
+  draft.tagText = ''; $('tag-input').value = ''; remember(); renderCaptureOptions();
+}
+function commitSource() {
+  if (!editable()) return;
+  draft.item = withSourceUrl(draft.item, $('source-url').value);
+  draft.sourceInput = draft.item.url; remember(); renderCaptureOptions();
+}
+function renderCaptureOptions() {
+  if (!draft) return;
+  $('capture-options').disabled = !editable();
+  $('capture-options').hidden = !!draft.done;
+  $('tags-locked').hidden = !draft.prepared || !!draft.done;
+  $('source-url').value = draft.sourceInput ?? draft.item.url;
+  $('tag-input').value = draft.tagText || '';
+  const selected = $('selected-tags'), recommended = $('suggested-tags');
+  selected.replaceChildren(); recommended.replaceChildren();
+  for (const tag of draft.item.tags || []) {
+    const button = document.createElement('button');button.type = 'button';
+    button.className = tag === '쇼핑' ? 'shopping-tag' : '';
+    button.textContent = '#' + tag + ' ×';button.setAttribute('aria-label', tag + ' 태그 삭제');
+    button.addEventListener('click', () => setTags(draft.item.tags.filter(t => t !== tag)));
+    selected.append(button);
+  }
+  for (const tag of suggestions) {
+    const button = document.createElement('button');button.type = 'button';
+    button.className = tag === '쇼핑' ? 'shopping-tag' : '';
+    const chosen = draft.item.tags.includes(tag);
+    button.textContent = (chosen ? '✓ ' : '+ ') + tag;button.setAttribute('aria-pressed', String(chosen));
+    button.addEventListener('click', () => setTags(chosen ? draft.item.tags.filter(t => t !== tag) : [...draft.item.tags, tag]));
+    recommended.append(button);
+  }
+}
+async function refreshSuggestions() {
+  const epoch = ++suggestionEpoch, uid = user?.uid;
+  suggestions = suggestedShareTags();renderCaptureOptions();
+  if (!uid || !captureMode || !draft || draft.done) return;
+  try {
+    const data = await api('/api/tags');
+    if (epoch !== suggestionEpoch || user?.uid !== uid) return;
+    suggestions = suggestedShareTags(Array.isArray(data.tags) ? data.tags : []);renderCaptureOptions();
+  } catch { /* Default suggestions stay available when the network is unavailable. */ }
 }
 function render() {
   $('capture-panel').hidden = !captureMode;
@@ -29,6 +82,7 @@ function render() {
   if (draft) {
     $('share-title').textContent = draft.item?.title || draft.share.title || '공유한 내용';
     $('share-text').textContent = draft.share.text;
+    renderCaptureOptions();
   }
 }
 try {
@@ -99,9 +153,19 @@ $('logout').addEventListener('click', async () => {
   catch (error) { status(errorMessage(error), true); }
   finally { busy = false; render(); }
 });
+$('tag-input').addEventListener('input', () => { if (editable()) { draft.tagText = $('tag-input').value; remember(); } });
+$('tag-input').addEventListener('keydown', event => {
+  if (!event.isComposing && event.key === 'Enter') {
+    event.preventDefault();try { commitTagInput(); } catch (error) { status(errorMessage(error), true); }
+  }
+});
+$('tag-add').addEventListener('click', () => { try { commitTagInput(); } catch (error) { status(errorMessage(error), true); } });
+$('source-url').addEventListener('input', () => { if (editable()) { draft.sourceInput = $('source-url').value; remember(); } });
+$('source-url').addEventListener('change', () => { try { commitSource(); } catch (error) { status(errorMessage(error), true); } });
 $('save').addEventListener('click', async () => {
   if (busy || !initialized || !user || !draft || draft.done || problem) return;
   if (draft.uid && draft.uid !== user.uid) { status('처음 저장을 시도한 계정으로 로그인해 주세요. 다른 계정에는 이 공유를 재전송하지 않아요.', true); return; }
+  try { commitSource(); commitTagInput(); } catch (error) { status(errorMessage(error), true); return; }
   busy = true; draft.uid = user.uid; remember(); render();
   try {
     // Resolve metadata only before the first sync attempt. Retries use exactly the same body.
@@ -139,7 +203,7 @@ try {
   auth = lib.getAuth(firebase.initializeApp(window.MOADOOGI_CONFIG.firebase));
   await lib.setPersistence(auth, lib.browserLocalPersistence);
   lib.onAuthStateChanged(auth, next => {
-    user = next; initialized = true; window.moadoogiMobileReady = true;
+    user = next; void refreshSuggestions(); initialized = true; window.moadoogiMobileReady = true;
     render();
     if (problem) status(problem, true);
     else if (draft?.done) status('이미 저장한 공유예요.');

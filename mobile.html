@@ -18,6 +18,17 @@
     <h1 id="heading">관심 목록에 모아두기</h1>
     <p class="intro">이 계정으로 저장해 두면 웹에서도 볼 수 있어요.</p>
     <div class="preview"><strong id="share-title"></strong><p id="share-text"></p></div>
+    <fieldset id="capture-options" class="capture-options">
+      <label for="source-url">원본 주소 <small>선택</small></label>
+      <input id="source-url" type="url" inputmode="url" autocomplete="off" placeholder="https://…">
+      <p class="field-help">공유된 주소가 있으면 자동으로 연결해요. 주소가 없으면 붙여넣어 주세요.</p>
+      <label for="tag-input">태그</label>
+      <div id="selected-tags" class="tag-list" aria-label="선택한 태그"></div>
+      <div class="tag-entry"><input id="tag-input" type="text" autocomplete="off" maxlength="500" placeholder="태그 입력 · 쉼표나 스페이스로 구분"><button type="button" id="tag-add">추가</button></div>
+      <p class="suggestion-label">추천 태그 <span>눌러서 선택</span></p>
+      <div id="suggested-tags" class="tag-list" aria-label="추천 태그"></div>
+      <p id="tags-locked" class="field-help" hidden>저장 재시도 중에는 같은 내용으로 보내요. 태그와 주소 수정은 저장 후 웹에서 할 수 있어요.</p>
+    </fieldset>
   </section>
   <section id="account-panel" hidden>
     <div class="eyebrow">공유 전용 앱</div>

@@ -241,3 +241,10 @@ html[data-theme="dark"] .calendar-controls input{color-scheme:dark}
 .bilibili-preview-action{position:absolute;right:8px;bottom:8px;padding:6px 9px;border-radius:7px;background:#151c2bdb;color:#fff;font-size:10px;font-weight:800}
 .bilibili-preview-box:focus-visible{outline:2px solid var(--purple);outline-offset:3px}
 html[data-theme="dark"] .kind-icon.bilibili{background:#263d4c;color:#8cdbf7}
+
+/* Shopping is an ordinary user tag with a recognizable warm accent. */
+.shopping-tag,.tag.user-tag.shopping-tag,.tag-chip.shopping-tag,.detail-composer-tag.shopping-tag{background:#fff0db;color:#9a4c08;border-color:#efc58f}
+.shopping-tag button,.shopping-tag .detail-composer-tag-filter,.shopping-tag .detail-composer-tag-remove{color:inherit}
+#shopping-nav .nav-icon{color:#b86815}#shopping-nav.active,#shopping-nav:hover{background:#fff0db;color:#9a4c08}
+html[data-theme="dark"] .shopping-tag,html[data-theme="dark"] .tag.user-tag.shopping-tag,html[data-theme="dark"] .tag-chip.shopping-tag,html[data-theme="dark"] .detail-composer-tag.shopping-tag{background:#453322;color:#ffcc8c;border-color:#79502d}
+html[data-theme="dark"] #shopping-nav.active,html[data-theme="dark"] #shopping-nav:hover{background:#453322;color:#ffcc8c}

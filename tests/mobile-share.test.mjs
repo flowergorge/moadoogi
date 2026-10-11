@@ -39,3 +39,16 @@ test('invalid share payloads and oversize UTF-8 records are rejected, never sile
   assert.throws(() => buildShareItem(parse({ text: 'a'.repeat(5001) })), /5,000/);
   assert.equal(parseShareFragment(''), null);
 });
+
+test('separate source URL preserves the selected quote and unrelated embedded links', () => {
+  const text = '참고 링크 https://other.example/article 와 선택한 문장';
+  const item = buildShareItem(parse({text, sourceUrl:'https://example.com/source'}));
+  assert.equal(item.url,'https://example.com/source');assert.equal(item.note,text);
+  const quote=buildShareItem(parse({text:'선택한 문장',title:'선택한 문장'}));
+  assert.equal(quote.note,'선택한 문장');
+});
+test('explicit source rejects non-web and credential links without discarding selected text', () => {
+  for(const sourceUrl of ['javascript:alert(1)','content://private/item','android-app://browser','https://user:pass@example.com/']){
+    const item=buildShareItem(parse({text:'선택한 문장',sourceUrl}));assert.equal(item.url,'');assert.equal(item.note,'선택한 문장');
+  }
+});

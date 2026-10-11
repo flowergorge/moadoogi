@@ -645,6 +645,15 @@ async function getMetadata(request) {
   return extractHtmlMetadata(result.body, result.url);
 }
 
+export async function getSuggestedTags(db, userId) {
+  const result = await db.prepare(
+    "SELECT t.value AS tag, COUNT(*) AS uses FROM items AS i, json_each(i.item_json, '$.tags') AS t " +
+    "WHERE i.user_id = ? AND t.type = 'text' AND length(t.value) BETWEEN 1 AND 80 " +
+    "GROUP BY t.value ORDER BY uses DESC, t.value ASC LIMIT 16"
+  ).bind(userId).all();
+  return json({ tags: (result.results || []).map(row => row.tag) });
+}
+
 async function route(request, env) {
   const url = new URL(request.url);
   if (!url.pathname.startsWith('/api/')) return json({ error: 'not_found', message: 'Unknown API endpoint' }, 404);
@@ -657,6 +666,10 @@ async function route(request, env) {
     await rateLimit(env.DB, userId, 'items', 120);
     return getItems(env.DB, userId, offset);
   }
+  if (url.pathname === '/api/tags' && request.method === 'GET') {
+    await rateLimit(env.DB, userId, 'tags', 30);
+    return getSuggestedTags(env.DB, userId);
+  }
   if (url.pathname === '/api/sync' && request.method === 'POST') {
     await rateLimit(env.DB, userId, 'sync', 30);
     return applySync(env.DB, userId, request);
@@ -665,7 +678,7 @@ async function route(request, env) {
     await rateLimit(env.DB, userId, 'metadata', 15);
     return json(await getMetadata(request));
   }
-  if (['/api/items', '/api/sync', '/api/metadata'].includes(url.pathname)) {
+  if (['/api/items', '/api/sync', '/api/metadata', '/api/tags'].includes(url.pathname)) {
     return json({ error: 'method_not_allowed', message: 'Unsupported HTTP method' }, 405);
   }
   return json({ error: 'not_found', message: 'Unknown API endpoint' }, 404);

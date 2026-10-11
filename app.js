@@ -98,7 +98,7 @@ function normalizeTags(text){return [...new Set(String(text||'').split(/\s+/u).m
 function renderTagChips(id,tags){
   const container=$(id);container.replaceChildren();
   for(const tag of tags){
-    const chip=document.createElement('span');chip.className='tag-chip';
+    const chip=document.createElement('span');chip.className='tag-chip'+(tag==='쇼핑'?' shopping-tag':'');
     const name=document.createElement('span');name.textContent='#'+tag;
     const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.dataset.removeTag=tag;
     remove.setAttribute('aria-label',tag+' 태그 삭제');remove.title=tag+' 삭제';
@@ -307,7 +307,7 @@ function decorateCards(list){
     star.setAttribute('aria-pressed',String(item.starred));
     card.querySelector('h3').prepend(star);
     for(const tag of item.tags||[]){
-      const chip=document.createElement('button');chip.type='button';chip.className='tag user-tag';
+      const chip=document.createElement('button');chip.type='button';chip.className='tag user-tag'+(tag==='쇼핑'?' shopping-tag':'');
       chip.dataset.filterTag=tag;chip.textContent='#'+tag;chip.title='#'+tag+' 스크랩 보기';
       card.querySelector('.tags').append(chip);
     }
@@ -433,7 +433,7 @@ function renderDetail(){
   const drawDetailTags=()=>{
     tagChips.replaceChildren();
     for(const tag of item.tags||[]){
-      const chip=document.createElement('span');chip.className='detail-composer-tag';
+      const chip=document.createElement('span');chip.className='detail-composer-tag'+(tag==='쇼핑'?' shopping-tag':'');
       const label=document.createElement('button');label.type='button';label.className='detail-composer-tag-filter';
       label.dataset.filterTag=tag;label.textContent='#'+tag;label.title='#'+tag+' 태그 스크랩 보기';
       const remove=document.createElement('button');remove.type='button';remove.className='detail-composer-tag-remove';
@@ -566,13 +566,16 @@ function openCalendar(){
 function render(){
   document.querySelector('.content').classList.toggle('calendar-view',calendarView);
   $('calendar-page').hidden=!calendarView;
+  $('shopping-nav').classList.toggle('active',!calendarView&&activeTag==='쇼핑');
+  $('shopping-nav').setAttribute('aria-current',!calendarView&&activeTag==='쇼핑'?'page':'false');
+  $('tag-filter-banner').classList.toggle('shopping-tag',activeTag==='쇼핑');
   $('dated-nav').classList.toggle('active',calendarView);
   $('calendar-bottom-nav').classList.toggle('active',calendarView);
   $('dated-nav').setAttribute('aria-current',calendarView?'page':'false');
   $('calendar-bottom-nav').setAttribute('aria-current',calendarView?'page':'false');
-  $('page-breadcrumb').textContent=calendarView?'일정 캘린더':'스크랩 & 할 일';
-  document.querySelector('.intro h1').textContent=calendarView?'일정 캘린더':'내 스크랩 & 할 일 ✦';
-  $('list-heading').textContent=calendarView?scheduleCalendar.dateLabel+' 일정':'내 스크랩 목록';
+  $('page-breadcrumb').textContent=calendarView?'일정 캘린더':activeTag==='쇼핑'?'쇼핑':'스크랩 & 할 일';
+  document.querySelector('.intro h1').textContent=calendarView?'일정 캘린더':activeTag==='쇼핑'?'쇼핑 모아보기':'내 스크랩 & 할 일 ✦';
+  $('list-heading').textContent=calendarView?scheduleCalendar.dateLabel+' 일정':activeTag==='쇼핑'?'쇼핑 태그의 스크랩':'내 스크랩 목록';
   if(calendarView){
     scheduleCalendar.render(records);
     if(!visible().some(item=>item.id===selected))selected=visible()[0]?.id||null;
@@ -658,6 +661,7 @@ $('paste-clipboard').addEventListener('click',async()=>{
 $('sidebar-nav').addEventListener('click',e=>{const b=e.target.closest('[data-filter]');if(b)setFilter(b.dataset.filter)});
 $('bottom-nav').addEventListener('click',e=>{const b=e.target.closest('[data-filter]');if(b)setFilter(b.dataset.filter)});
 $('pills').addEventListener('click',e=>{const b=e.target.closest('[data-pill]');if(b)setFilter(b.dataset.pill)});
+$('shopping-nav').addEventListener('click',()=>filterByTag('쇼핑'));
 $('dated-nav').addEventListener('click',openCalendar);
 $('calendar-bottom-nav').addEventListener('click',openCalendar);
 $('interest-stat').addEventListener('click',()=>setFilter('관심'));

@@ -12,10 +12,11 @@ const id = 'aa6bb573-772a-4a33-aaf3-7da8fb978adf';
 function storage(map = new Map()) {
   return { map, getItem: k => map.get(k) ?? null, setItem: (k, v) => map.set(k, v), removeItem: k => map.delete(k) };
 }
-async function page({ text, title = '', session = storage(), initialUid = null, response } = {}) {
-  const elements = new Map(), calls = [];
+async function page({ text, title = '', session = storage(), initialUid = null, response, tagResponse }  = {}) {
+  const elements = new Map(), calls = [], tagCalls = [];
+  function node() { return { value: '', hidden: false, disabled: false, textContent: '', children: [], attrs: {}, classList: { toggle() {} }, events: {}, setAttribute(k,v) { this.attrs[k]=v; }, replaceChildren(...children) { this.children=children; }, append(...children) { this.children.push(...children); }, addEventListener(type, callback) { this.events[type] = callback; } }; }
   function element(id) {
-    if (!elements.has(id)) elements.set(id, { hidden: false, disabled: false, textContent: '', classList: { toggle() {} }, events: {}, addEventListener(type, callback) { this.events[type] = callback; } });
+    if (!elements.has(id)) elements.set(id, node());
     return elements.get(id);
   }
   let changed;
@@ -31,12 +32,12 @@ async function page({ text, title = '', session = storage(), initialUid = null, 
   const location = { search: text === undefined ? '' : '?capture=1', pathname: '/mobile.html', hash: text === undefined ? '' : '#share=' + encodeURIComponent(JSON.stringify({ id, text, title })) };
   const context = { ...core, URLSearchParams, URL, JSON, Promise, Error, TypeError, AbortSignal, location, sessionStorage: session,
     history: { replaceState: () => { location.hash = ''; } },
-    document: { getElementById: element }, mockAuth, mockFirebase: { initializeApp: () => ({}) },
+    document: { getElementById: element, createElement: node }, mockAuth, mockFirebase: { initializeApp: () => ({}) },
     window: { MOADOOGI_CONFIG: { apiBase: 'https://api.example.test', firebase: {} } },
-    fetch: async (url, options) => { calls.push({ url, ...options }); return response ? response(url, options, calls) : { ok: true, status: 200, json: async () => ({ ok: true, title: '조회된 제목' }) }; }
+    fetch: async (url, options) => { if (url.endsWith('/api/tags')) { tagCalls.push({url,...options}); return tagResponse ? tagResponse(url,options) : {ok:true,status:200,json:async()=>({tags:['내태그']})}; } calls.push({ url, ...options }); return response ? response(url, options, calls) : { ok: true, status: 200, json: async () => ({ ok: true, title: '조회된 제목' }) }; }
   };
   await vm.runInNewContext('(async()=>{\n' + source + '\n})()', context);
-  return { element, calls, session, location, click: id => element(id).events.click(), setUser: uid => { auth.currentUser = user(uid); changed(auth.currentUser); } };
+  return { element, calls, tagCalls, session, location, click: id => element(id).events.click(), setUser: uid => { auth.currentUser = user(uid); changed(auth.currentUser); } };
 }
 test('share requires explicit save; popup login updates account; metadata and save succeed', async () => {
   const app = await page({ text: 'https://example.com/article' });
@@ -111,4 +112,52 @@ test('corrupt old draft does not prevent a new share; completed draft cannot sav
   assert.equal(reopened.element('success').hidden, false);
   await reopened.click('save');
   assert.equal(reopened.calls.length, 0);
+});
+
+test('recommended and typed tags plus a supplied source are included in the saved item',async()=>{
+  const app=await page({text:'선택한 문장',initialUid:'a'});
+  await new Promise(setImmediate);
+  assert.equal(app.tagCalls.length,1);
+  const recommended=app.element('suggested-tags').children;
+  assert.ok(recommended.some(x=>x.textContent.includes('내태그')));
+  recommended.find(x=>x.textContent.includes('쇼핑')).events.click();
+  app.element('source-url').value='https://example.com/product';
+  app.element('source-url').events.input();app.element('source-url').events.change();
+  app.element('tag-input').value='#장바구니, 선물';app.element('tag-input').events.input();
+  await app.click('save');
+  const item=JSON.parse(app.calls.at(-1).body).changes[0].item;
+  assert.deepEqual(item.tags,['쇼핑','웹사이트','장바구니','선물']);assert.equal(item.url,'https://example.com/product');assert.equal(item.note,'선택한 문장');
+});
+test('invalid source blocks writes; failed-save retries freeze tags and preserve the request',async()=>{
+  let posts=0;
+  const app=await page({text:'메모',initialUid:'a',response:async(url,options)=>{
+    if(options.method==='POST'&&++posts===1)throw new TypeError('network');
+    return {ok:true,status:200,json:async()=>({ok:true})};
+  }});
+  app.element('source-url').value='javascript:alert(1)';await app.click('save');assert.equal(app.calls.length,0);
+  app.element('source-url').value='';app.element('tag-input').value='쇼핑';await app.click('tag-add');
+  await app.click('save');assert.equal(app.element('capture-options').disabled,true);
+  app.element('suggested-tags').children.find(x=>x.textContent.includes('게임')).events.click();
+  await app.click('save');assert.equal(app.calls[0].body,app.calls[1].body);
+});
+test('old-account recommendations are ignored after account changes, network failures keep defaults',async()=>{
+  let finishA;
+  const pendingA=new Promise(resolve=>{finishA=resolve});
+  const app=await page({text:'메모',initialUid:'a',tagResponse:async()=>pendingA});
+  app.setUser(null);finishA({ok:true,status:200,json:async()=>({tags:['계정A비공개태그']})});
+  await new Promise(setImmediate);
+  assert.ok(!app.element('suggested-tags').children.some(x=>x.textContent.includes('계정A')));
+  const failed=await page({text:'메모',initialUid:'b',tagResponse:async()=>{throw new TypeError('network')}});
+  await new Promise(setImmediate);
+  assert.ok(failed.element('suggested-tags').children.some(x=>x.textContent.includes('쇼핑')));
+});
+test('draft tag text and source survive reopening before saving and recommendation toggles are reversible',async()=>{
+  const app=await page({text:'메모',initialUid:'a'});
+  app.element('source-url').value='https://example.com/source';app.element('source-url').events.input();
+  app.element('tag-input').value='나의태그';app.element('tag-input').events.input();
+  const next=await page({text:'메모',initialUid:'a',session:app.session});
+  assert.equal(next.element('source-url').value,'https://example.com/source');assert.equal(next.element('tag-input').value,'나의태그');
+  const shopping=()=>next.element('suggested-tags').children.find(x=>x.textContent.includes('쇼핑'));
+  shopping().events.click();assert.equal(shopping().attrs['aria-pressed'],'true');
+  shopping().events.click();assert.equal(shopping().attrs['aria-pressed'],'false');
 });
