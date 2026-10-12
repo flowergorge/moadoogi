@@ -3,7 +3,7 @@
 Android 8.0 이상. 앱 이름 `모아두기`, 패키지 `io.github.flowergorge.moadoogi`.
 
 다른 앱의 **공유 → 모아두기 → 이 계정에 저장**으로 링크/텍스트를 저장합니다.
-앱 아이콘을 실행하면 계정 관리만 표시합니다. 목록/수정/삭제는 기존 웹에서 합니다.
+앱 아이콘을 실행하면 계정 관리와 홈페이지 이동 버튼을 표시합니다. 목록/수정/삭제는 홈페이지에서 합니다.
 
 이 APK는 Android ACTION_SEND 수신기와 Custom Tabs를 사용합니다. 전체 웹앱 대신
 `mobile.html` 저장·계정 전용 화면을 엽니다. 지원 브라우저가 필요하며 위쪽에 브라우저
@@ -32,7 +32,7 @@ Windows에서도 Python 빌드 명령을 사용할 수 있습니다. SDK/JDK 경
 `ANDROID_HOME` / `JAVA_HOME`이 있으면 경로 옵션을 생략할 수 있습니다.
 출력은 `app/build/manual/moadoogi-unsigned.apk`입니다.
 서명하려면 `--keystore <키 파일> --password-file <비밀번호 파일>` 옵션을 함께 넘깁니다.
-이 경우 zipalign 후 apksigner 서명·검증까지 수행하고 `moadoogi-share-v1.1.0.apk`를 생성합니다.
+이 경우 zipalign 후 apksigner 서명·검증까지 수행하고 `moadoogi-share-v1.2.0.apk`를 생성합니다.
 Gradle/Android Studio 환경이 있으면 프로젝트를 열어 일반 빌드도 가능합니다.
 키/비밀번호는 Git에 넣지 않습니다. 같은 키를 유지해야 설치된 앱을 업데이트할 수 있습니다.
 
@@ -51,3 +51,14 @@ Gradle/Android Studio 환경이 있으면 프로젝트를 열어 일반 빌드�
 - 쇼핑 태그는 웹의 SHORTCUTS → 쇼핑에서 모아 보고 주황색으로 구분합니다.
 - 응답이 불확실한 저장 재시도에서는 주소/태그를 잠가 동일한 내용으로 재전송합니다.
 - 같은 기존 서명키로 빌드한 1.1.0 APK는 기존 앱 위에 업데이트 설치합니다.
+
+## 1.2.0
+
+- 공유·계정 화면에서 홈페이지를 새 탭으로 열 수 있습니다. 저장 중인 화면과 초안은 유지합니다.
+- 웹 로고·파비콘·Android 적응형 아이콘에 같은 벡터 디자인을 사용합니다. Android 13 이상 테마 아이콘도 제공합니다.
+- X 게시물은 공유 제목 유무에 관계없이 게시자와 본문을 조회합니다. 제목은 게시자, 내용은 조회된 본문으로 저장합니다.
+- 조회가 막히면 주소에서 확인한 @계정과 원래 공유 텍스트를 보존합니다. 저장 재시도는 같은 내용으로 전송합니다.
+- 기존 서명키를 유지한 versionCode 3으로 업데이트 설치합니다.
+
+브랜드 원본: `assets/moadoogi-logo.svg`. 저장소 루트에서 `python scripts/generate_brand.py`로
+Android 벡터와 PNG/ICO를 재생성합니다(Inkscape, ImageMagick 필요).

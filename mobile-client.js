@@ -1,4 +1,4 @@
-import { parseShareFragment, buildShareItem, assertItemSize, errorMessage, normalizeShareTags, withShareTags, withSourceUrl, suggestedShareTags } from './mobile-core.mjs';
+import { parseShareFragment, buildShareItem, assertItemSize, errorMessage, normalizeShareTags, withShareTags, withSourceUrl, suggestedShareTags, xPostAuthor, withShareMetadata } from './mobile-core.mjs?v=1.2.0';
 
 const $ = id => document.getElementById(id);
 const captureMode = new URLSearchParams(location.search).get('capture') === '1';
@@ -81,7 +81,7 @@ function render() {
   $('success').hidden = !draft?.done;
   if (draft) {
     $('share-title').textContent = draft.item?.title || draft.share.title || '공유한 내용';
-    $('share-text').textContent = draft.share.text;
+    $('share-text').textContent = draft.item?.note || draft.item?.url || draft.share.text;
     renderCaptureOptions();
   }
 }
@@ -170,16 +170,13 @@ $('save').addEventListener('click', async () => {
   try {
     // Resolve metadata only before the first sync attempt. Retries use exactly the same body.
     if (!draft.prepared) {
-      if (draft.item.url.startsWith('https://') && !draft.share.title) {
-        status('링크 제목을 확인하고 있어요…');
+      const xAuthor = xPostAuthor(draft.item.url);
+      if (xAuthor) draft.item = withShareMetadata(draft.item, { author: xAuthor });
+      if (draft.item.url.startsWith('https://') && (xAuthor || !draft.share.title)) {
+        status(xAuthor ? 'X 게시자와 본문을 확인하고 있어요…' : '링크 제목을 확인하고 있어요…');
         try {
           const data = await api('/api/metadata?url=' + encodeURIComponent(draft.item.url));
-          const title = typeof data.title === 'string' ? data.title.trim().slice(0, 180) : '';
-          if (title) {
-            const candidate = { ...draft.item, title };
-            assertItemSize(candidate);
-            draft.item = candidate;
-          }
+          draft.item = withShareMetadata(draft.item, data);
         } catch { /* A blocked metadata fetch must never discard the shared text. */ }
       }
       draft.prepared = true; remember();

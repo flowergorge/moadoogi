@@ -161,3 +161,45 @@ test('draft tag text and source survive reopening before saving and recommendati
   shopping().events.click();assert.equal(shopping().attrs['aria-pressed'],'true');
   shopping().events.click();assert.equal(shopping().attrs['aria-pressed'],'false');
 });
+
+test('X share with Android subject fetches author and full body, retaining tags and URL', async () => {
+  const app = await page({text: 'X에서 공유함 https://x.com/flower/status/12345?s=20', title: '공유된 X 제목', initialUid: 'a',
+    response: async () => ({ok:true,status:200,json:async()=>({ok:true,title:'본문으로 만든 제목',author:'꽃계곡 (@flower)',text:'실제 게시물 본문\n두 번째 줄'})})});
+  app.element('tag-input').value='쇼핑';app.element('tag-input').events.input();
+  await app.click('save');
+  assert.equal(app.calls.length,2);
+  assert.match(app.calls[0].url,/\/api\/metadata\?/);
+  const item=JSON.parse(app.calls[1].body).changes[0].item;
+  assert.equal(item.title,'꽃계곡 (@flower)');
+  assert.equal(item.note,'실제 게시물 본문\n두 번째 줄');
+  assert.equal(item.url,'https://x.com/flower/status/12345?s=20');
+  assert.deepEqual(item.tags,['X게시글','쇼핑']);
+  assert.equal(app.element('share-title').textContent,item.title);
+  assert.equal(app.element('share-text').textContent,item.note);
+});
+test('blocked X metadata retains shared body and URL-derived author', async () => {
+  const app=await page({text:'원래 공유한 내용 https://mobile.twitter.com/flower/status/12345',title:'X에서 공유',initialUid:'a',
+    response:async(url,options)=>({ok:!!options.method,status:options.method?200:502,json:async()=>({ok:true})})});
+  await app.click('save');
+  const item=JSON.parse(app.calls.at(-1).body).changes[0].item;
+  assert.equal(item.title,'@flower');assert.equal(item.note,'원래 공유한 내용');
+  assert.equal(app.element('success').hidden,false);
+});
+test('X metadata is not fetched again after an uncertain save, including draft reopen', async () => {
+  const app=await page({text:'https://x.com/i/web/status/12345',title:'X 게시물',initialUid:'a',
+    response:async(url,options)=>{
+      if(options.method==='POST')throw new TypeError('network');
+      return {ok:true,status:200,json:async()=>({author:'작성자',text:'조회한 본문'})};
+    }});
+  await app.click('save');
+  const next=await page({text:'https://x.com/i/web/status/12345',title:'X 게시물',initialUid:'a',session:app.session});
+  await next.click('save');
+  assert.equal(next.calls.length,1);assert.equal(next.calls[0].body,app.calls[1].body);
+});
+test('profile and lookalike URLs with subjects do not trigger X post enrichment', async () => {
+  for(const url of ['https://x.com/flower','https://x.com.evil.example/flower/status/12345']){
+    const app=await page({text:url,title:'원래 제목',initialUid:'a'});
+    await app.click('save');
+    assert.equal(app.calls.length,1);assert.equal(JSON.parse(app.calls[0].body).changes[0].item.title,'원래 제목');
+  }
+});

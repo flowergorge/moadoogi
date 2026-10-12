@@ -52,3 +52,16 @@ test('explicit source rejects non-web and credential links without discarding se
     const item=buildShareItem(parse({text:'선택한 문장',sourceUrl}));assert.equal(item.url,'');assert.equal(item.note,'선택한 문장');
   }
 });
+
+test('X enrichment applies only real post metadata and fits within the UTF-8 item limit', async () => {
+  const { xPostAuthor, withShareMetadata, assertItemSize } = await import('../mobile-core.mjs');
+  assert.equal(xPostAuthor('https://www.twitter.com/flower/status/12345/photo/1'),'@flower');
+  assert.equal(xPostAuthor('https://x.com/i/status/12345'),'X 게시물');
+  for(const url of ['https://x.com/home','https://x.com/flower','https://x.com/flower/status/abc','https://evil.example/flower/status/12345'])assert.equal(xPostAuthor(url),'');
+  const item=buildShareItem(parse({text:'공유 본문 https://x.com/flower/status/12345',title:'X에서 공유'}));
+  assert.equal(item.title,'@flower');
+  const missing=withShareMetadata(item,{title:'본문 제목만 있음'});
+  assert.equal(missing.title,'@flower');assert.equal(missing.note,'공유 본문');
+  const tooBig=withShareMetadata(item,{author:'작성자',text:'가'.repeat(5000)});
+  assert.equal(tooBig.title,'작성자');assert.equal(tooBig.note,'공유 본문');assertItemSize(tooBig);
+});

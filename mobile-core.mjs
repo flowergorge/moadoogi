@@ -23,7 +23,7 @@ export function buildShareItem(share, now = new Date()) {
   if (note.length > 5000) throw Error('메모는 5,000자까지 저장할 수 있어요. 짧게 나누어 공유해 주세요.');
   const host = url ? new URL(url).hostname.toLowerCase() : '';
   const tag = automaticShareTag(url);
-  const title = (share.title || note.split(/\r?\n/).find(Boolean) || (url ? host.replace(/^www\./, '') + '에서 공유한 링크' : '공유한 텍스트')).slice(0, 180);
+  const title = (xPostAuthor(url) || share.title || note.split(/\r?\n/).find(Boolean) || (url ? host.replace(/^www\./, '') + '에서 공유한 링크' : '공유한 텍스트')).slice(0, 180);
   if (url && embedded && note === share.title && !share.sourceUrl) note = '';
   const item = { id: 'android-' + share.id, title, url, note, tags: tag ? [tag] : [], status: '관심', date: '', created: now.toISOString(), rank: -now.getTime() / 1000, starred: false, autoTagsApplied: true };
   assertItemSize(item);
@@ -33,6 +33,31 @@ export function buildShareItem(share, now = new Date()) {
 export function assertItemSize(item) {
   if (new TextEncoder().encode(JSON.stringify(item)).length > 12 * 1024) {
     throw Error('공유 내용의 용량이 너무 커요. 텍스트를 짧게 나누어 공유해 주세요.');
+  }
+}
+
+// Only actual X post links qualify, never profiles or lookalike domains.
+export function xPostAuthor(value) {
+  const safe = safeSourceUrl(value);
+  if (!safe) return '';
+  const url = new URL(safe);
+  if (!['x.com', 'www.x.com', 'twitter.com', 'www.twitter.com', 'mobile.twitter.com'].includes(url.hostname)) return '';
+  if (/^\/i\/(?:web\/)?status\/\d+(?:\/|$)/.test(url.pathname)) return 'X 게시물';
+  const match = /^\/([a-zA-Z0-9_]{1,15})\/status\/\d+(?:\/|$)/.exec(url.pathname);
+  return match && !['i', 'intent', 'search', 'home', 'explore'].includes(match[1].toLowerCase()) ? '@' + match[1] : '';
+}
+
+export function withShareMetadata(item, data) {
+  const isX = !!xPostAuthor(item.url);
+  const rawTitle = isX ? data?.author : data?.title;
+  const title = typeof rawTitle === 'string' ? rawTitle.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 180) : '';
+  const note = isX && typeof data?.text === 'string' ? data.text.trim().slice(0, 5000) : '';
+  const candidate = { ...item, title: title || item.title, note: note || item.note };
+  try { assertItemSize(candidate); return candidate; }
+  catch {
+    // Keep the original shared text when fetched content would exceed the save limit.
+    const titleOnly = { ...item, title: candidate.title };
+    try { assertItemSize(titleOnly); return titleOnly; } catch { return item; }
   }
 }
 

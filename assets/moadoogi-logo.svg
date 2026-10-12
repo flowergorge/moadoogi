@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" fill="none">
+  <title>모아두기</title>
+  <path id="background" fill="#6754D9" d="M24 0H84Q108 0 108 24V84Q108 108 84 108H24Q0 108 0 84V24Q0 0 24 0Z"/>
+  <g id="symbol">
+    <path fill="#BCB2F3" d="M44 26H72Q78 26 78 32V70Q78 76 72 76H70V42Q70 32 60 32H38Q39 26 44 26Z"/>
+    <path fill="#FFFFFF" d="M36 34H62Q68 34 68 40V82L49 71L30 82V40Q30 34 36 34Z"/>
+    <path stroke="#6754D9" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M40 51L47 58L59 46"/>
+  </g>
+</svg>

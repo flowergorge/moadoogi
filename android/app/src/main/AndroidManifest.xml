@@ -4,7 +4,7 @@
         <intent><action android:name="android.support.customtabs.action.CustomTabsService" /></intent>
         <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="https" /></intent>
     </queries>
-    <application android:label="모아두기" android:icon="@drawable/ic_launcher"
+    <application android:label="모아두기" android:icon="@mipmap/ic_launcher"
         android:allowBackup="false" android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <activity android:name=".MainActivity" android:exported="true">

@@ -46,7 +46,7 @@ def main():
     run(aapt2, 'link', '-o', out / 'resources.apk', '-I', platform,
         '--manifest', out / 'AndroidManifest.xml', '--java', out / 'generated',
         '--min-sdk-version', '26', '--target-sdk-version', '35',
-        '--version-code', '2', '--version-name', '1.1.0', out / 'resources.zip')
+        '--version-code', '3', '--version-name', '1.2.0', out / 'resources.zip')
     sources = sorted((source / 'java').rglob('*.java')) + sorted((out / 'generated').rglob('*.java'))
     javac = executable(jdk / 'bin', 'javac')
     compiler = [javac] if javac.exists() else [executable(jdk / 'bin', 'java'), '-m', 'jdk.compiler/com.sun.tools.javac.Main']
@@ -64,7 +64,7 @@ def main():
     aligned = out / 'moadoogi-unsigned.apk'
     run(executable(bt, 'zipalign'), '-f', '-p', '4', raw, aligned)
     if args.keystore:
-        final = out / 'moadoogi-share-v1.1.0.apk'
+        final = out / 'moadoogi-share-v1.2.0.apk'
         signer = executable(bt, 'apksigner', True)
         run(signer, 'sign', '--ks', args.keystore.resolve(), '--ks-key-alias', 'moadoogi',
             '--ks-pass', 'file:' + str(args.password_file.resolve()), '--out', final, aligned)
