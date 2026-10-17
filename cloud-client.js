@@ -13,7 +13,7 @@ function validBackupItem(item){
   if(url){let u;try{u=new URL(url)}catch{throw Error('올바르지 않은 백업 링크')};if(!['http:','https:'].includes(u.protocol))throw Error('HTTP(S) 링크만 지원해요')}
   const created=typeof item.created==='string'&&Number.isFinite(Date.parse(item.created))?item.created:new Date().toISOString();
   const tags=Array.isArray(item.tags)?item.tags.filter(t=>typeof t==='string'&&t.length<=80).slice(0,24):[];
-  return {id,title,url,note,tags,status:['관심','진행중','완료','미루기','포기'].includes(item.status)?item.status:'관심',date:/^\d{4}-\d{2}-\d{2}$/.test(item.date||'')?item.date:'',created,rank:Number.isFinite(item.rank)?item.rank:0,starred:item.starred===true,autoTagsApplied:true};
+  return {id,title,url,note,tags,status:['관심','진행중','대기','완료','완성','미루기','포기'].includes(item.status)?item.status:'관심',date:/^\d{4}-\d{2}-\d{2}$/.test(item.date||'')?item.date:'',created,rank:Number.isFinite(item.rank)?item.rank:0,starred:item.starred===true,autoTagsApplied:true};
 }
 const snap=items=>new Map(items.map(item=>[item.id,JSON.stringify(item)]));
 let app,auth,authLib,user,ready=false,loading=false,flushing=false,epoch=0,lastPull=0,changeVersion=0;

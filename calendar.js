@@ -37,7 +37,7 @@ function create(root,{today,onSelect}){
   let selectedDate=today(),month=selectedDate.slice(0,7),records=[];
   const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const label=date=>new Intl.DateTimeFormat('ko-KR',{timeZone:'UTC',month:'long',day:'numeric',weekday:'long'}).format(new Date(date+'T12:00:00Z'));
-  const statusClass=status=>({'관심':'interest','진행중':'progress','완료':'done','미루기':'later','포기':'abandoned'}[status]||'interest');
+  const statusClass=status=>({'관심':'interest','진행중':'progress','대기':'waiting','완료':'done','완성':'finished','미루기':'later','포기':'abandoned'}[status]||'interest');
   root.innerHTML='<div class="calendar-toolbar"><div><h2 id="calendar-month-title" aria-live="polite"></h2><p id="calendar-summary"></p></div><div class="calendar-controls"><button type="button" data-calendar-today>오늘</button><button type="button" data-calendar-step="-1" aria-label="이전 달">‹</button><label class="sr-only" for="calendar-month-input">이동할 연월</label><input type="month" id="calendar-month-input" min="0001-01" max="9999-12" aria-label="이동할 연월"><button type="button" data-calendar-step="1" aria-label="다음 달">›</button></div></div><div class="calendar-weekdays" aria-hidden="true">'+['일','월','화','수','목','금','토'].map(day=>'<span>'+day+'</span>').join('')+'</div><div class="calendar-grid" id="calendar-grid" aria-label="월간 일정"></div><p class="calendar-hint">날짜를 누르면 아래에 그날의 항목이 표시돼요. · 한국 시간 기준</p>';
   const grid=root.querySelector('#calendar-grid'),input=root.querySelector('#calendar-month-input');
   function render(next=records){

@@ -1,0 +1,43 @@
+/* Moadoogi workspace navigation and seven-state workflow (2026-10-18). */
+.sidebar { overflow-y:auto; overflow-x:hidden; }
+.sidebar .brand { margin:0 7px 15px; flex-shrink:0; }
+.sidebar-toggle { display:flex; align-items:center; justify-content:center; gap:8px; align-self:flex-start; width:calc(100% - 14px); margin:0 7px 24px; min-height:32px; padding:5px 7px; color:var(--sub); background:var(--surface); border:1px solid var(--line); border-radius:9px; font-size:11px; font-weight:800; }
+.sidebar-toggle:hover { border-color:var(--purple); color:var(--purple); background:var(--purple-light); }
+.sidebar-toggle:focus-visible { outline:2px solid var(--purple); outline-offset:2px; }
+#sidebar-toggle-icon { font-size:22px; line-height:18px; }
+.sidebar-nav .nav-label { min-width:0; white-space:nowrap; }
+.sidebar-nav .nav-count { margin-left:auto; }
+.nav-waiting { background:#fef2da; color:#b17b1a; }
+.nav-finished { background:#e8f7f4; color:#168b83; }
+#project-nav.active, #project-nav:hover { background:#e9f7f4; color:#197e78; }
+.status-대기 { background:#fff2d9; color:#a66d1e; }
+.status-완성 { background:#def7f0; color:#178472; }
+html[data-theme="dark"] .status-대기 { background:#473c28; color:#f3cb86; }
+html[data-theme="dark"] .status-완성 { background:#20483f; color:#8ee1c6; }
+html[data-theme="dark"] #project-nav.active,
+html[data-theme="dark"] #project-nav:hover { background:#24443e; color:#92dfc8; }
+.calendar-event.waiting .calendar-status-dot { background:#e5ad51; }
+.calendar-event.finished .calendar-status-dot { background:#22aa96; }
+@media (min-width:901px) {
+  .app.sidebar-collapsed { grid-template-columns:72px minmax(0,1fr); }
+  .sidebar-collapsed .sidebar { padding:22px 9px; }
+  .sidebar-collapsed .brand { margin:0 auto 13px; width:38px; }
+  .sidebar-collapsed .brand-wordmark,
+  .sidebar-collapsed .nav-label,
+  .sidebar-collapsed .nav-count,
+  .sidebar-collapsed .nav-title,
+  .sidebar-collapsed .sidebar-toggle-text,
+  .sidebar-collapsed .account small { display:none; }
+  .sidebar-collapsed .sidebar-toggle { align-self:center; width:38px; height:34px; min-height:34px; margin:0 auto 20px; padding:4px; }
+  .sidebar-collapsed .sidebar-nav { gap:6px; }
+  .sidebar-collapsed .sidebar-nav button { padding:10px 3px; justify-content:center; min-height:43px; gap:0; }
+  .sidebar-collapsed .sidebar-nav .nav-icon { width:25px; height:25px; font-size:18px; }
+  .sidebar-collapsed .sidebar-nav + .nav-title + .sidebar-nav { margin-top:15px; border-top:1px solid var(--line); padding-top:15px; }
+  .sidebar-collapsed .account { justify-content:center; font-size:0; padding:0; }
+  .sidebar-collapsed .account>span { font-size:11px; }
+}
+@media (max-width:900px) {
+  /* Mobile keeps its existing bottom navigation and full-width content. */
+  .app.sidebar-collapsed { display:block; }
+  .sidebar { display:none; }
+}

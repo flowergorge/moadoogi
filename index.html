@@ -13,22 +13,30 @@
   <link rel="stylesheet" href="./composer.css">
   <link rel="stylesheet" href="./theme.css">
   <link rel="stylesheet" href="./cloud.css">
+  <link rel="stylesheet" href="./sidebar.css">
 </head>
 <body>
   <div class="app">
-    <aside class="sidebar">
-      <div class="brand"><img class="brand-icon" src="./assets/moadoogi-logo.svg" width="38" height="38" alt=""><div><strong>모아두기<span class="dot">.</span></strong><small>SAVE NOW · DO LATER</small></div></div>
+    <aside class="sidebar" aria-label="작업 공간 탐색">
+      <div class="brand"><img class="brand-icon" src="./assets/moadoogi-logo.svg" width="38" height="38" alt=""><div class="brand-wordmark"><strong>모아두기<span class="dot">.</span></strong><small>SAVE NOW · DO LATER</small></div></div>
+      <button type="button" id="sidebar-toggle" class="sidebar-toggle" aria-label="사이드바 접기" aria-expanded="true" title="사이드바 접기"><span id="sidebar-toggle-icon" aria-hidden="true">‹</span><span class="sidebar-toggle-text">메뉴 접기</span></button>
       <div class="nav-title">WORKSPACE</div>
-      <nav class="sidebar-nav" id="sidebar-nav">
-        <button data-filter="전체"><span class="nav-icon nav-all">▦</span>전체 보기 <span class="nav-count" data-count="전체"></span></button>
-        <button data-filter="관심" class="active"><span class="nav-icon nav-interest">☆</span>관심 <span class="nav-count" data-count="관심"></span></button>
-        <button data-filter="진행중"><span class="nav-icon nav-progress">◔</span>진행 중 <span class="nav-count" data-count="진행중"></span></button>
-        <button data-filter="완료"><span class="nav-icon nav-done">✓</span>완료 <span class="nav-count" data-count="완료"></span></button>
-        <button data-filter="미루기"><span class="nav-icon nav-snooze">◷</span>미루기 <span class="nav-count" data-count="미루기"></span></button>
-        <button data-filter="포기"><span class="nav-icon nav-abandon">⊘</span>포기 <span class="nav-count" data-count="포기"></span></button>
+      <nav class="sidebar-nav" id="sidebar-nav" aria-label="상태별 스크랩">
+        <button type="button" data-filter="전체" aria-label="전체 보기" title="전체 보기"><span class="nav-icon nav-all" aria-hidden="true">▦</span><span class="nav-label">전체 보기</span><span class="nav-count" data-count="전체"></span></button>
+        <button type="button" data-filter="관심" class="active" aria-label="관심" title="관심"><span class="nav-icon nav-interest" aria-hidden="true">☆</span><span class="nav-label">관심</span><span class="nav-count" data-count="관심"></span></button>
+        <button type="button" data-filter="진행중" aria-label="진행 중" title="진행 중"><span class="nav-icon nav-progress" aria-hidden="true">◔</span><span class="nav-label">진행 중</span><span class="nav-count" data-count="진행중"></span></button>
+        <button type="button" data-filter="대기" aria-label="대기" title="대기"><span class="nav-icon nav-waiting" aria-hidden="true">◷</span><span class="nav-label">대기</span><span class="nav-count" data-count="대기"></span></button>
+        <button type="button" data-filter="완료" aria-label="완료" title="완료"><span class="nav-icon nav-done" aria-hidden="true">✓</span><span class="nav-label">완료</span><span class="nav-count" data-count="완료"></span></button>
+        <button type="button" data-filter="완성" aria-label="완성" title="완성"><span class="nav-icon nav-finished" aria-hidden="true">✦</span><span class="nav-label">완성</span><span class="nav-count" data-count="완성"></span></button>
+        <button type="button" data-filter="미루기" aria-label="미루기" title="미루기"><span class="nav-icon nav-snooze" aria-hidden="true">◴</span><span class="nav-label">미루기</span><span class="nav-count" data-count="미루기"></span></button>
+        <button type="button" data-filter="포기" aria-label="포기" title="포기"><span class="nav-icon nav-abandon" aria-hidden="true">⊘</span><span class="nav-label">포기</span><span class="nav-count" data-count="포기"></span></button>
       </nav>
       <div class="nav-title second-title">SHORTCUTS</div>
-      <nav class="sidebar-nav"><button type="button" id="shopping-nav"><span class="nav-icon">▱</span>쇼핑</button><button id="dated-nav"><span class="nav-icon">▤</span>일정 캘린더</button></nav>
+      <nav class="sidebar-nav" aria-label="바로가기">
+        <button type="button" id="shopping-nav" aria-label="쇼핑" title="쇼핑"><span class="nav-icon" aria-hidden="true">▱</span><span class="nav-label">쇼핑</span></button>
+        <button type="button" id="dated-nav" aria-label="일정 캘린더" title="일정 캘린더"><span class="nav-icon" aria-hidden="true">▤</span><span class="nav-label">일정 캘린더</span></button>
+        <button type="button" id="project-nav" aria-label="프로젝트" title="프로젝트"><span class="nav-icon nav-finished" aria-hidden="true">✦</span><span class="nav-label">프로젝트</span></button>
+      </nav>
       <div class="side-spacer"></div>
       <div class="account"><span>나</span> 나만의 스크랩 공간 <small>⌄</small></div>
     </aside>
@@ -79,7 +87,7 @@
   <div class="modal-backdrop" id="modal-backdrop">
     <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <div class="modal-top"><div><h2 id="modal-title">새 발견 저장하기</h2><p>주소나 텍스트를 붙여넣어 저장할 수 있어요.</p></div><button class="close" id="modal-close" aria-label="닫기">×</button></div>
-      <form id="item-form"><label class="field"><span>제목 *</span><input id="f-title" placeholder="예: 퇴근 후 읽을 좋은 글" maxlength="180" required></label><label class="field"><span>주소 (선택)</span><input type="url" id="f-url" placeholder="https://..."></label><label class="field"><span>내용 / 메모</span><textarea id="f-note" rows="4" placeholder="읽고 싶은 내용, 나중에 해야 할 일 등을 적어주세요."></textarea></label><div class="field"><span>태그 (스페이스로 구분)</span><div class="edit-tag-field"><div class="tag-chips" id="edit-tag-chips"></div><input id="f-tags" autocomplete="off" placeholder="태그 입력 후 스페이스"></div></div><div class="field-grid"><label class="field"><span>상태</span><select id="f-status"><option>관심</option><option>진행중</option><option>완료</option><option>미루기</option><option>포기</option></select></label><label class="field"><span>관련 날짜</span><input type="date" id="f-date"></label></div><label class="edit-star-field"><input id="f-starred" type="checkbox"><span class="edit-star-icon" aria-hidden="true">★</span> 중요 스크랩으로 표시 (우선순위 맨 위)</label><p class="hint">사이트 제목은 제목 읽기 서비스를 실행했을 때 자동으로 가져옵니다.</p><div class="modal-actions"><button type="button" class="subtle" id="example">공유 예시 넣기</button><button class="primary" type="submit">저장하기</button></div></form>
+      <form id="item-form"><label class="field"><span>제목 *</span><input id="f-title" placeholder="예: 퇴근 후 읽을 좋은 글" maxlength="180" required></label><label class="field"><span>주소 (선택)</span><input type="url" id="f-url" placeholder="https://..."></label><label class="field"><span>내용 / 메모</span><textarea id="f-note" rows="4" placeholder="읽고 싶은 내용, 나중에 해야 할 일 등을 적어주세요."></textarea></label><div class="field"><span>태그 (스페이스로 구분)</span><div class="edit-tag-field"><div class="tag-chips" id="edit-tag-chips"></div><input id="f-tags" autocomplete="off" placeholder="태그 입력 후 스페이스"></div></div><div class="field-grid"><label class="field"><span>상태</span><select id="f-status"><option>관심</option><option>진행중</option><option>대기</option><option>완료</option><option>완성</option><option>미루기</option><option>포기</option></select></label><label class="field"><span>관련 날짜</span><input type="date" id="f-date"></label></div><label class="edit-star-field"><input id="f-starred" type="checkbox"><span class="edit-star-icon" aria-hidden="true">★</span> 중요 스크랩으로 표시 (우선순위 맨 위)</label><p class="hint">사이트 제목은 제목 읽기 서비스를 실행했을 때 자동으로 가져옵니다.</p><div class="modal-actions"><button type="button" class="subtle" id="example">공유 예시 넣기</button><button class="primary" type="submit">저장하기</button></div></form>
     </section>
   </div>
   <div class="toast" id="toast" role="status"></div>

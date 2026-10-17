@@ -2,7 +2,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const KST = 'Asia/Seoul', STORAGE = 'moadoogi-prototype-v1', THEME_KEY='moadoogi-theme';
-const STATUS = ['전체','관심','진행중','완료','미루기','포기'];
+const STATUS = ['전체','관심','진행중','대기','완료','완성','미루기','포기'];
 const PAGE_SIZE = 30;
 const demoData = [
   {id:'demo1',title:'SwiftUI Agent Skill — GitHub에서 발견한 도구',url:'https://github.com/twostraws/SwiftUI-Agent-Skill',note:'퇴근하고 README를 정독하고 실제로 쓸 만한지 살펴보기.',status:'관심',date:'',created:'2026-10-10T11:46:00+09:00'},
@@ -22,8 +22,22 @@ let toastTimer;
 let youtubeApiPromise=null,youtubePlayer=null,youtubePreviewEpoch=0;
 let lastCapture={value:'',time:0};
 let receivedPageShare=null;
-let draftTags=[],editTags=[],captureStarred=false,activeTag=null,openStatusMenu=null,draggedId=null,dropPosition=null;
+let draftTags=[],editTags=[],captureStarred=false,activeTag=null,openStatusMenu=null,draggedId=null,dropPosition=null,projectView=false;
 let theme='light';try{theme=localStorage.getItem(THEME_KEY)==='dark'?'dark':'light'}catch{}
+const SIDEBAR_KEY='moadoogi-sidebar-collapsed';
+let sidebarCollapsed=false;
+try{sidebarCollapsed=localStorage.getItem(SIDEBAR_KEY)==='1'}catch{}
+function setSidebarCollapsed(value){
+  sidebarCollapsed=Boolean(value);
+  document.querySelector('.app').classList.toggle('sidebar-collapsed',sidebarCollapsed);
+  $('sidebar-toggle').setAttribute('aria-expanded',String(!sidebarCollapsed));
+  const label=sidebarCollapsed?'사이드바 펼치기':'사이드바 접기';
+  $('sidebar-toggle').setAttribute('aria-label',label);
+  $('sidebar-toggle').title=label;
+  $('sidebar-toggle-icon').textContent=sidebarCollapsed?'›':'‹';
+  document.querySelector('.sidebar-toggle-text').textContent=sidebarCollapsed?'메뉴 펼치기':'메뉴 접기';
+  try{localStorage.setItem(SIDEBAR_KEY,sidebarCollapsed?'1':'0')}catch{}
+}
 function setTheme(value){
   theme=value;document.documentElement.dataset.theme=value;
   $('theme-icon').textContent=value==='dark'?'☀':'☾';
@@ -114,7 +128,7 @@ function setCaptureStar(value){
   b.classList.toggle('is-starred',captureStarred);b.setAttribute('aria-pressed',String(captureStarred));
 }
 function daysUntil(date){if(!date)return null;const today=kstDate();return (Date.parse(date+'T00:00:00Z')-Date.parse(today+'T00:00:00Z'))/86400000}
-function urgency(item){if(!item.date||item.status==='완료'||item.status==='포기')return null;const days=daysUntil(item.date);if(days===1)return {label:'내일 · 임박',tone:'soon'};if(days===0)return {label:'오늘 · 임박',tone:'today'};if(days<0)return {label:'지난 일정',tone:'overdue'};return null}
+function urgency(item){if(!item.date||item.status==='완료'||item.status==='완성'||item.status==='포기')return null;const days=daysUntil(item.date);if(days===1)return {label:'내일 · 임박',tone:'soon'};if(days===0)return {label:'오늘 · 임박',tone:'today'};if(days<0)return {label:'지난 일정',tone:'overdue'};return null}
 function extractDate(text){
   const iso=String(text).match(/\b20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})\b/);
   if(iso){const dt=new Date(iso[0]);if(!isNaN(dt))return new Intl.DateTimeFormat('en-CA',{timeZone:KST,year:'numeric',month:'2-digit',day:'2-digit'}).format(dt)}
@@ -216,7 +230,6 @@ function save(){
 }
 function toast(message){clearTimeout(toastTimer);$('toast').textContent=message;$('toast').classList.add('show');toastTimer=setTimeout(()=>$('toast').classList.remove('show'),2700)}
 function count(s){return s==='전체'?records.length:records.filter(x=>x.status===s).length}
-function nextStatus(status){const list=STATUS.slice(1);return list[(list.indexOf(status)+1)%list.length]}
 function renderCounts(){
   $('interest').textContent=count('관심');
   $('progress').textContent=count('진행중');$('dated').textContent=records.filter(x=>x.date).length;
@@ -225,21 +238,21 @@ function renderCounts(){
   $('urgent-count').textContent='● '+urgent+'건 임박';
   $('dated-stat').classList.toggle('has-urgent',urgent>0);
   document.querySelectorAll('[data-count]').forEach(el=>el.textContent=count(el.dataset.count));
-  document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('active',!calendarView&&!activeTag&&!onlyDated&&b.dataset.filter===activeFilter));
-  $('pills').innerHTML=STATUS.map(s=>`<button class="pill ${!activeTag&&!onlyDated&&s===activeFilter?'active':''}" data-pill="${s}">${s} <small>${count(s)}</small></button>`).join('');
+  document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('active',!calendarView&&!projectView&&!activeTag&&!onlyDated&&b.dataset.filter===activeFilter));
+  $('pills').innerHTML=STATUS.map(s=>`<button class="pill ${!projectView&&!activeTag&&!onlyDated&&s===activeFilter?'active':''}" data-pill="${s}">${s} <small>${count(s)}</small></button>`).join('');
   $('tag-filter-banner').hidden=!activeTag;
   $('tag-filter-label').textContent=activeTag?'#'+activeTag+' 태그의 스크랩':'';
 }
 function visible(){
   if(calendarView)return window.MoadoogiCalendar.groupItems(records).get(scheduleCalendar.date)||[];
-  let list=records.filter(x=>activeTag?(x.tags||[]).includes(activeTag):(activeFilter==='전체'||x.status===activeFilter)&&(!onlyDated||x.date));
+  let list=records.filter(x=>projectView?x.status==='완성':activeTag?(x.tags||[]).includes(activeTag):(activeFilter==='전체'||x.status===activeFilter)&&(!onlyDated||x.date));
   if(search)list=list.filter(x=>[x.title,x.note,x.url,x.status,(x.tags||[]).join(' ')].join(' ').toLowerCase().includes(search));
   return [...list].sort((a,b)=>(Number(b.starred)-Number(a.starred))||(order==='manual'?a.rank-b.rank:order==='old'?a.created.localeCompare(b.created):order==='date'?(a.date||'9999').localeCompare(b.date||'9999'):order==='title'?a.title.localeCompare(b.title,'ko'):b.created.localeCompare(a.created)));
 }
 function filterByTag(tag){
   leaveCalendar();
   shownCount=PAGE_SIZE;
-  activeTag=tag;activeFilter='전체';onlyDated=false;search='';$('search').value='';
+  activeTag=tag;activeFilter='전체';onlyDated=false;projectView=false;search='';$('search').value='';
   order='manual';$('sort').value=order;
   selected=visible()[0]?.id||null;
   $('detail').classList.remove('show-mobile');render();
@@ -285,15 +298,15 @@ function decorateCards(list){
     status.type='button';
     status.className=badge.className;
     status.dataset.cycleStatus=item.id;
-    const dropdown=item.status==='진행중'||item.status==='완료';
-    const next=nextStatus(item.status);
-    status.setAttribute('aria-label',item.title+' 상태 '+item.status+', '+(dropdown?'상태 목록 열기':'누르면 '+next));
-    status.title=dropdown?'상태 선택':'클릭하면 '+next+'(으)로 변경';
-    status.textContent=item.status;
+    status.setAttribute('aria-label',item.title+' 상태 '+item.status+', 상태 목록 열기');
+    status.setAttribute('aria-haspopup','true');
+    status.setAttribute('aria-expanded',String(openStatusMenu===item.id));
+    status.title='상태 선택';status.textContent=item.status;
     badge.replaceWith(status);
-    if(dropdown&&openStatusMenu===item.id){
+    if(openStatusMenu===item.id){
       const menu=document.createElement('div');menu.className='status-menu';menu.setAttribute('role','group');menu.setAttribute('aria-label','상태 변경');
-      for(const label of STATUS.slice(1)){
+      const choices=item.status==='진행중'?['대기','완료','완성','미루기','포기']:STATUS.slice(1);
+      for(const label of choices){
         const option=document.createElement('button');option.type='button';option.className='status-option status-'+label;
         option.dataset.setStatus=item.id;option.dataset.status=label;option.textContent=label;
         if(label===item.status)option.classList.add('is-current');menu.append(option);
@@ -557,7 +570,7 @@ function leaveCalendar(){
   if(location.hash==='#calendar')history.replaceState(history.state,'',location.pathname+location.search);
 }
 function openCalendar(){
-  calendarView=true;shownCount=PAGE_SIZE;activeTag=null;
+  calendarView=true;shownCount=PAGE_SIZE;activeTag=null;projectView=false;
   if(location.hash!=='#calendar')history.pushState(history.state,'',location.pathname+location.search+'#calendar');
   selected=visible()[0]?.id||null;
   $('detail').classList.remove('show-mobile');render();
@@ -566,6 +579,8 @@ function openCalendar(){
 function render(){
   document.querySelector('.content').classList.toggle('calendar-view',calendarView);
   $('calendar-page').hidden=!calendarView;
+  $('project-nav').classList.toggle('active',!calendarView&&projectView);
+  $('project-nav').setAttribute('aria-current',!calendarView&&projectView?'page':'false');
   $('shopping-nav').classList.toggle('active',!calendarView&&activeTag==='쇼핑');
   $('shopping-nav').setAttribute('aria-current',!calendarView&&activeTag==='쇼핑'?'page':'false');
   $('tag-filter-banner').classList.toggle('shopping-tag',activeTag==='쇼핑');
@@ -573,16 +588,22 @@ function render(){
   $('calendar-bottom-nav').classList.toggle('active',calendarView);
   $('dated-nav').setAttribute('aria-current',calendarView?'page':'false');
   $('calendar-bottom-nav').setAttribute('aria-current',calendarView?'page':'false');
-  $('page-breadcrumb').textContent=calendarView?'일정 캘린더':activeTag==='쇼핑'?'쇼핑':'스크랩 & 할 일';
-  document.querySelector('.intro h1').textContent=calendarView?'일정 캘린더':activeTag==='쇼핑'?'쇼핑 모아보기':'내 스크랩 & 할 일 ✦';
-  $('list-heading').textContent=calendarView?scheduleCalendar.dateLabel+' 일정':activeTag==='쇼핑'?'쇼핑 태그의 스크랩':'내 스크랩 목록';
+  $('page-breadcrumb').textContent=calendarView?'일정 캘린더':projectView?'프로젝트':activeTag==='쇼핑'?'쇼핑':'스크랩 & 할 일';
+  document.querySelector('.intro h1').textContent=calendarView?'일정 캘린더':projectView?'프로젝트 모아보기':activeTag==='쇼핑'?'쇼핑 모아보기':'내 스크랩 & 할 일 ✦';
+  $('list-heading').textContent=calendarView?scheduleCalendar.dateLabel+' 일정':projectView?'완성한 프로젝트':activeTag==='쇼핑'?'쇼핑 태그의 스크랩':'내 스크랩 목록';
   if(calendarView){
     scheduleCalendar.render(records);
-    if(!visible().some(item=>item.id===selected))selected=visible()[0]?.id||null;
   }
+  if(!visible().some(item=>item.id===selected))selected=visible()[0]?.id||null;
   renderCounts();renderCards();renderDetail();
 }
-function setFilter(status,dated=false){leaveCalendar();shownCount=PAGE_SIZE;activeFilter=status;onlyDated=dated;activeTag=null;$('detail').classList.remove('show-mobile');render()}
+function setFilter(status,dated=false){leaveCalendar();shownCount=PAGE_SIZE;activeFilter=status;onlyDated=dated;activeTag=null;projectView=false;$('detail').classList.remove('show-mobile');render()}
+function openProjectView(){
+  leaveCalendar();shownCount=PAGE_SIZE;projectView=true;activeTag=null;activeFilter='완성';onlyDated=false;search='';$('search').value='';
+  order='manual';$('sort').value=order;selected=visible()[0]?.id||null;
+  $('detail').classList.remove('show-mobile');render();
+  if(innerWidth<=900)document.querySelector('.section-title').scrollIntoView({behavior:'smooth',block:'start'});
+}
 function openModal(item){
   editing=item?.id||null;$('modal-title').textContent=item?'스크랩 수정하기':'새 발견 저장하기';
   $('f-title').value=item?.title||'';$('f-url').value=item?.url||'';$('f-note').value=item?.note||'';
@@ -662,6 +683,8 @@ $('sidebar-nav').addEventListener('click',e=>{const b=e.target.closest('[data-fi
 $('bottom-nav').addEventListener('click',e=>{const b=e.target.closest('[data-filter]');if(b)setFilter(b.dataset.filter)});
 $('pills').addEventListener('click',e=>{const b=e.target.closest('[data-pill]');if(b)setFilter(b.dataset.pill)});
 $('shopping-nav').addEventListener('click',()=>filterByTag('쇼핑'));
+$('project-nav').addEventListener('click',openProjectView);
+$('sidebar-toggle').addEventListener('click',()=>setSidebarCollapsed(!sidebarCollapsed));
 $('dated-nav').addEventListener('click',openCalendar);
 $('calendar-bottom-nav').addEventListener('click',openCalendar);
 $('interest-stat').addEventListener('click',()=>setFilter('관심'));
@@ -689,13 +712,8 @@ $('cards').addEventListener('click',e=>{
   if(cycle){
     const item=records.find(x=>x.id===cycle.dataset.cycleStatus);
     if(!item)return;
-    if(item.status==='진행중'||item.status==='완료'){
-      openStatusMenu=openStatusMenu===item.id?null:item.id;renderCards();return;
-    }
-    openStatusMenu=null;
-    item.status=nextStatus(item.status);
-    save();render();toast('상태: '+item.status);
-    return;
+    openStatusMenu=openStatusMenu===item.id?null:item.id;
+    renderCards();return;
   }
   if(e.target.closest('.drag-handle'))return;
   const check=e.target.closest('[data-check]');
@@ -808,6 +826,7 @@ window.addEventListener('hashchange',()=>{
   $('detail').classList.remove('show-mobile');render();
 });
 setTheme(theme);
+setSidebarCollapsed(sidebarCollapsed);
 renderCaptureTime();
 setInterval(renderCaptureTime,1000);
 setInterval(()=>{if(!draggedId){renderCards();if(calendarView)scheduleCalendar.render(records)}},60000);
